@@ -95,6 +95,14 @@ final class StatusItemController {
             .receive(on: RunLoop.main)
             .sink { [weak self] _, _ in self?.relabel() }
             .store(in: &cancellables)
+        // The glyph follows the default output, so the item has to relabel on
+        // a device switch too. Taken off the published properties rather than
+        // `onDefaultDeviceChange`, which already belongs to the monitor's
+        // `refreshTarget()` and must not be overwritten.
+        audio.$defaultDeviceID.combineLatest(audio.$devices)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _, _ in self?.relabel() }
+            .store(in: &cancellables)
         NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in self?.relabel() }
@@ -112,28 +120,50 @@ final class StatusItemController {
         BatteryStyle(rawValue: UserDefaults.standard.string(forKey: BatteryStyle.key) ?? "") ?? .fallback
     }
 
-    /// One composite image: the headphones glyph with the battery underneath
-    /// (dots or a small percentage), so the item is no wider than the glyph.
-    /// The glyph is drawn in the bar's current label colour — the image can't
-    /// be a template (that would flatten the green dots) — and is redrawn
-    /// when the bar's appearance changes.
+    /// The device sound is currently going to — the same "is default" notion
+    /// the menu highlights its row with.
+    private var defaultOutputDevice: AudioOutputDevice? {
+        audio.devices.first { $0.id == audio.defaultDeviceID }
+    }
+
+    /// One composite image: the output's glyph with the battery underneath
+    /// (dots or a small percentage) when that output has one, so the item is
+    /// no wider than the glyph. The glyph is drawn in the bar's current label
+    /// colour — the image can't be a template (that would flatten the green
+    /// dots) — and is redrawn when the bar's appearance changes.
     private func relabel() {
         guard let button = item.button else { return }
         button.attributedTitle = NSAttributedString(string: "")
-        guard let battery = monitor.battery else {
+        let device = defaultOutputDevice
+        let plan = MenuBarLabelPlan.forOutput(
+            transportType: device?.transportType,
+            deviceName: device?.name,
+            battery: monitor.battery,
+            connected: monitor.connected
+        )
+        guard device != nil || plan.showsBattery else {
+            // Nothing to say about the output yet: the plain system symbol,
+            // sized by the status bar itself, exactly as before.
             button.image = NSImage(
-                systemSymbolName: monitor.connected ? "headphones" : "headphones.circle",
-                accessibilityDescription: "Headset"
+                systemSymbolName: plan.symbolName, accessibilityDescription: "Headset"
             )
             button.toolTip = nil
             return
         }
         var image: NSImage?
         button.effectiveAppearance.performAsCurrentDrawingAppearance {
-            image = MenuBarLabel.image(level: battery, style: style)
+            image = MenuBarLabel.image(
+                level: plan.showsBattery ? monitor.battery : nil,
+                style: style,
+                symbolName: plan.symbolName
+            )
         }
         button.image = image
-        button.toolTip = "\(monitor.deviceName ?? "Headset") — \(battery)%"
+        if plan.showsBattery, let battery = monitor.battery {
+            button.toolTip = "\(monitor.deviceName ?? device?.name ?? "Headset") — \(battery)%"
+        } else {
+            button.toolTip = device?.name
+        }
     }
 
     private var settingsWindow: NSWindow?
@@ -222,14 +252,85 @@ enum BatteryStyle: String, CaseIterable, Identifiable {
 
 // MARK: - Menu bar label
 
-/// Draws the status item image: headphones glyph on top, battery below.
-/// 18 pt wide, full menu bar height, rendered at 2x.
+/// What the status item should draw right now: which SF Symbol, and whether
+/// the battery row belongs under it.
+///
+/// The menu bar has to say *where the sound is going*, so the glyph follows
+/// the default output device rather than the headset. Only a Bluetooth output
+/// can report a battery, so every other device gets its own icon and no
+/// battery row — drawing dots for the built-in speakers would be inventing a
+/// reading that doesn't exist.
+struct MenuBarLabelPlan: Equatable {
+    let symbolName: String
+    let showsBattery: Bool
+
+    /// - Parameters:
+    ///   - transportType: `kAudioDevicePropertyTransportType` of the current
+    ///     default output, `nil` when no default device is known yet.
+    ///   - deviceName: the default output's CoreAudio name, used only to pick
+    ///     a nicer glyph for AirPods — nothing else keys off the brand.
+    ///   - battery: the monitor's level, `nil` before the first reading.
+    ///   - connected: whether the headset link is up (only used by the
+    ///     no-device-known fallback, which predates the device lookup).
+    static func forOutput(
+        transportType: UInt32?,
+        deviceName: String? = nil,
+        battery: Int?,
+        connected: Bool
+    ) -> MenuBarLabelPlan {
+        guard let transportType else {
+            // Nothing known about the output: the long-standing fallback —
+            // headphones, circled while the link is down.
+            if battery != nil { return MenuBarLabelPlan(symbolName: "headphones", showsBattery: true) }
+            return MenuBarLabelPlan(
+                symbolName: connected ? "headphones" : "headphones.circle", showsBattery: false
+            )
+        }
+        // The device rows in the menu already map transport types to symbols;
+        // reuse that mapping so the bar and the list can't disagree.
+        let icon = AudioOutputFormatting.iconName(forTransportType: transportType)
+        guard AudioOutputFormatting.isBluetooth(transportType: transportType) else {
+            return MenuBarLabelPlan(symbolName: icon, showsBattery: false)
+        }
+        return MenuBarLabelPlan(
+            symbolName: airPodsSymbolName(deviceName) ?? icon, showsBattery: battery != nil
+        )
+    }
+
+    /// Apple ships a glyph per AirPods model, and a pair of AirPods Max in the
+    /// bar reading "headphones" looks like a generic placeholder. This is the
+    /// only place the app looks at a brand: the choice of symbol. Nothing —
+    /// device selection, battery reading, matching — keys off it.
+    ///
+    /// `nil` for every other device, so it falls through to the transport
+    /// mapping. Matched on the name as people actually have it: any case, and
+    /// any run of whitespace (non-breaking spaces included, which is what a
+    /// renamed "AirPods Pro" often carries).
+    static func airPodsSymbolName(_ deviceName: String?) -> String? {
+        guard let deviceName else { return nil }
+        let name = deviceName
+            .lowercased()
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+        if name.contains("airpods max") { return "airpods.max" }
+        if name.contains("airpods pro") { return "airpods.pro" }
+        if name.contains("airpods") { return "airpods" }
+        return nil
+    }
+}
+
+/// Draws the status item image: output glyph on top, battery below when the
+/// device has one. 18 pt wide, full menu bar height, rendered at 2x.
 enum MenuBarLabel {
     static let width: CGFloat = 18
     static let height: CGFloat = 18
     static let dotCount = 5
     static let dotDiameter: CGFloat = 2
     static let dotGap: CGFloat = 1
+    /// A glyph with nothing under it can use the whole height, so it is drawn
+    /// bigger than the 11 pt the composite squeezes into its top half.
+    static let soloPointSize: CGFloat = 12.5
 
     /// Dots lit for a level: one per 20 %, rounded up (30 % → 2, 90 % → 5).
     static func filledDots(level: Int) -> Int {
@@ -237,13 +338,34 @@ enum MenuBarLabel {
         return min(dotCount, Int((Double(clamped) / 20).rounded(.up)))
     }
 
-    static func image(level: Int, style: BatteryStyle) -> NSImage {
-        let size = NSSize(width: width, height: height)
+    /// The first of `preferred`, then `fallback`, that this macOS actually
+    /// has — `NSImage(systemSymbolName:)` returns nil for a symbol the system
+    /// doesn't know (the AirPods glyphs aren't guaranteed on every 13.x), and
+    /// a missing symbol would otherwise leave the item blank.
+    static func availableSymbolName(_ preferred: String, fallback: String = "headphones") -> String? {
+        for name in [preferred, fallback]
+        where NSImage(systemSymbolName: name, accessibilityDescription: nil) != nil {
+            return name
+        }
+        return nil
+    }
+
+    /// `level` is `nil` for an output that reports no battery: then the glyph
+    /// alone is drawn, centred, with no room reserved underneath.
+    static func image(level: Int?, style: BatteryStyle, symbolName: String = "headphones") -> NSImage {
+        let pointSize = level == nil ? soloPointSize : (style == .percent ? 9.5 : 11)
+        let glyph = availableSymbolName(symbolName)
+            .flatMap { NSImage(systemSymbolName: $0, accessibilityDescription: nil) }?
+            .withSymbolConfiguration(.init(pointSize: pointSize, weight: .regular))
+        // Wider glyphs than the headphones one (a laptop, a display) would be
+        // clipped by a fixed 18 pt box, so the box grows to fit them.
+        let boxWidth = max(width, (glyph?.size.width ?? 0).rounded(.up))
+        let size = NSSize(width: boxWidth, height: height)
         let ink = NSColor.labelColor
         // `flipped: true` gives a top-left origin regardless of the context;
         // rasterised into a bitmap (the status bar needs real pixels) at 2x.
         let drawn = NSImage(size: size, flipped: true) { _ in
-            draw(level: level, style: style, ink: ink)
+            draw(level: level, style: style, ink: ink, glyph: glyph, boxWidth: boxWidth)
             return true
         }
         let image = NSImage(size: size)
@@ -265,28 +387,32 @@ enum MenuBarLabel {
         return image
     }
 
-    /// Top-left origin. Glyph in the top 11 pt, battery in the bottom 5 pt.
-    private static func draw(level: Int, style: BatteryStyle, ink: NSColor) {
+    /// Top-left origin. With a battery: glyph in the top 11 pt, battery in the
+    /// bottom 5 pt. Without one: the glyph centred in the full height.
+    private static func draw(
+        level: Int?, style: BatteryStyle, ink: NSColor, glyph: NSImage?, boxWidth: CGFloat
+    ) {
 
         // Glyph: top 12 pt, tinted with the label colour.
-        if let glyph = NSImage(systemSymbolName: "headphones", accessibilityDescription: nil)?
-            .withSymbolConfiguration(.init(pointSize: style == .percent ? 9.5 : 11, weight: .regular)) {
+        if let glyph {
             let tinted = glyph.copy() as! NSImage
             tinted.lockFocus()
             ink.set()
             NSRect(origin: .zero, size: tinted.size).fill(using: .sourceAtop)
             tinted.unlockFocus()
             let g = tinted.size
-            tinted.draw(in: NSRect(x: (width - g.width) / 2, y: 0, width: g.width, height: g.height),
+            let y = level == nil ? (height - g.height) / 2 : 0
+            tinted.draw(in: NSRect(x: (boxWidth - g.width) / 2, y: y, width: g.width, height: g.height),
                         from: .zero, operation: .sourceOver, fraction: 1, respectFlipped: true, hints: nil)
         }
 
         // Battery: bottom 7 pt.
+        guard let level else { return }
         switch style {
         case .dots:
             let lit = filledDots(level: level)
             let rowWidth = CGFloat(dotCount) * dotDiameter + CGFloat(dotCount - 1) * dotGap
-            let x0 = (width - rowWidth) / 2
+            let x0 = (boxWidth - rowWidth) / 2
             for i in 0..<dotCount {
                 let rect = NSRect(x: x0 + CGFloat(i) * (dotDiameter + dotGap), y: height - dotDiameter - 1,
                                   width: dotDiameter, height: dotDiameter)
@@ -301,7 +427,7 @@ enum MenuBarLabel {
             let t = text.size()
             // Centre under the glyph; the glyph is kept smaller in this
             // mode so the two don't touch.
-            text.draw(in: NSRect(x: (width - t.width) / 2, y: height - t.height + 0.5,
+            text.draw(in: NSRect(x: (boxWidth - t.width) / 2, y: height - t.height + 0.5,
                                  width: t.width, height: t.height))
         }
     }

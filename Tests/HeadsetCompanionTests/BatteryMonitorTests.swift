@@ -1,3 +1,4 @@
+import CoreAudio
 import XCTest
 
 @testable import HeadsetCompanion
@@ -161,6 +162,165 @@ extension MenuBarLabelTests {
             let png = rep.representation(using: .png, properties: [:])!
             try png.write(to: URL(fileURLWithPath: dir).appendingPathComponent("label-\(style.rawValue).png"))
         }
+    }
+}
+
+/// What the menu bar draws for the current default output: the glyph follows
+/// where the sound is going, and only an output that can report a battery gets
+/// the battery row under it.
+final class MenuBarLabelPlanTests: XCTestCase {
+
+    func testBuiltInOutputShowsTheMacGlyphAndNoBattery() {
+        let plan = MenuBarLabelPlan.forOutput(
+            transportType: kAudioDeviceTransportTypeBuiltIn, battery: 70, connected: true
+        )
+        XCTAssertEqual(plan.symbolName, "laptopcomputer")
+        XCTAssertFalse(plan.showsBattery)
+    }
+
+    func testBluetoothWithBatteryShowsHeadphonesAndTheBatteryRow() {
+        for transport in [kAudioDeviceTransportTypeBluetooth, kAudioDeviceTransportTypeBluetoothLE] {
+            let plan = MenuBarLabelPlan.forOutput(
+                transportType: transport, battery: 42, connected: true
+            )
+            XCTAssertEqual(plan.symbolName, "headphones")
+            XCTAssertTrue(plan.showsBattery)
+        }
+    }
+
+    func testBluetoothWithoutAReadingShowsHeadphonesAlone() {
+        let plan = MenuBarLabelPlan.forOutput(
+            transportType: kAudioDeviceTransportTypeBluetooth, battery: nil, connected: true
+        )
+        XCTAssertEqual(plan.symbolName, "headphones")
+        XCTAssertFalse(plan.showsBattery)
+    }
+
+    func testOtherOutputsUseTheirOwnIconAndNeverABattery() {
+        let virtual = MenuBarLabelPlan.forOutput(
+            transportType: kAudioDeviceTransportTypeVirtual, battery: 70, connected: true
+        )
+        XCTAssertEqual(virtual.symbolName, "waveform")
+        XCTAssertFalse(virtual.showsBattery)
+
+        let usb = MenuBarLabelPlan.forOutput(
+            transportType: kAudioDeviceTransportTypeUSB, battery: 70, connected: true
+        )
+        XCTAssertEqual(usb.symbolName, "speaker.wave.2")
+        XCTAssertFalse(usb.showsBattery)
+    }
+
+    /// No default device yet is the pre-existing fallback, which must not
+    /// regress: headphones, circled while the headset link is down.
+    func testUnknownOutputKeepsTheHeadphonesFallback() {
+        XCTAssertEqual(
+            MenuBarLabelPlan.forOutput(transportType: nil, battery: nil, connected: false),
+            MenuBarLabelPlan(symbolName: "headphones.circle", showsBattery: false)
+        )
+        XCTAssertEqual(
+            MenuBarLabelPlan.forOutput(transportType: nil, battery: nil, connected: true),
+            MenuBarLabelPlan(symbolName: "headphones", showsBattery: false)
+        )
+        XCTAssertEqual(
+            MenuBarLabelPlan.forOutput(transportType: nil, battery: 70, connected: true),
+            MenuBarLabelPlan(symbolName: "headphones", showsBattery: true)
+        )
+    }
+
+    /// The real regression guard for "no battery when the sound is on the
+    /// Mac's own speakers": the rendered bitmap must have no lit dots in it.
+    func testBuiltInImageHasNoGreenPixels() {
+        let image = MenuBarLabel.image(level: nil, style: .dots, symbolName: "laptopcomputer")
+        XCTAssertEqual(greenPixels(in: image), 0)
+        XCTAssertGreaterThan(greenPixels(in: MenuBarLabel.image(level: 90, style: .dots)), 10)
+    }
+
+    private func greenPixels(in image: NSImage) -> Int {
+        guard let tiff = image.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff) else {
+            XCTFail("no bitmap")
+            return 0
+        }
+        var green = 0
+        for x in 0..<rep.pixelsWide {
+            for y in 0..<rep.pixelsHigh {
+                if let c = rep.colorAt(x: x, y: y), c.alphaComponent > 0.5,
+                   c.greenComponent > c.redComponent + 0.2 {
+                    green += 1
+                }
+            }
+        }
+        return green
+    }
+}
+
+/// The one place the app looks at a brand: AirPods get their own glyph in the
+/// menu bar. Everything else about them — selection, battery — stays generic,
+/// and the drawing layer must survive a symbol this macOS doesn't have.
+final class MenuBarAirPodsGlyphTests: XCTestCase {
+
+    private func symbol(_ name: String, transport: UInt32 = kAudioDeviceTransportTypeBluetooth) -> String {
+        MenuBarLabelPlan.forOutput(
+            transportType: transport, deviceName: name, battery: 70, connected: true
+        ).symbolName
+    }
+
+    func testTheThreeModelsMapToTheirOwnSymbols() {
+        XCTAssertEqual(symbol("AirPods Max"), "airpods.max")
+        XCTAssertEqual(symbol("AirPods Pro"), "airpods.pro")
+        XCTAssertEqual(symbol("AirPods"), "airpods")
+    }
+
+    func testOtherBluetoothHeadsetsKeepTheGenericGlyph() {
+        XCTAssertEqual(symbol("0XM4🫡"), "headphones")
+        XCTAssertEqual(symbol("WH-1000XM4"), "headphones")
+    }
+
+    func testCaseAndPunctuationVariants() {
+        XCTAssertEqual(symbol("AIRPODS PRO"), "airpods.pro")
+        XCTAssertEqual(symbol("Yamine's AirPods"), "airpods")
+        XCTAssertEqual(symbol("AirPods  Max"), "airpods.max")
+        XCTAssertEqual(symbol("AirPods\u{00A0}Pro de M"), "airpods.pro")
+        XCTAssertEqual(symbol("Yamine’s AirPods Pro"), "airpods.pro")
+    }
+
+    /// A USB DAC that happens to be called "AirPods dock" is not a headset:
+    /// the name only refines the Bluetooth glyph, it never overrides the
+    /// transport mapping.
+    func testNonBluetoothNamesNeverGetAnAirPodsGlyph() {
+        XCTAssertEqual(symbol("AirPods Pro", transport: kAudioDeviceTransportTypeUSB), "speaker.wave.2")
+        XCTAssertEqual(symbol("AirPods", transport: kAudioDeviceTransportTypeBuiltIn), "laptopcomputer")
+    }
+
+    func testAirPodsStillDrawTheBatteryRow() {
+        let plan = MenuBarLabelPlan.forOutput(
+            transportType: kAudioDeviceTransportTypeBluetoothLE,
+            deviceName: "AirPods Pro",
+            battery: 55,
+            connected: true
+        )
+        XCTAssertEqual(plan.symbolName, "airpods.pro")
+        XCTAssertTrue(plan.showsBattery)
+
+        let noReading = MenuBarLabelPlan.forOutput(
+            transportType: kAudioDeviceTransportTypeBluetooth,
+            deviceName: "AirPods Max",
+            battery: nil,
+            connected: true
+        )
+        XCTAssertEqual(noReading.symbolName, "airpods.max")
+        XCTAssertFalse(noReading.showsBattery)
+    }
+
+    /// The drawing layer resolves the plan's preferred symbol, so a glyph this
+    /// system doesn't ship can't blank the menu bar item.
+    func testSymbolResolverFallsBackToHeadphones() {
+        XCTAssertEqual(MenuBarLabel.availableSymbolName("headphones"), "headphones")
+        XCTAssertEqual(MenuBarLabel.availableSymbolName("sonora.not.a.symbol"), "headphones")
+        XCTAssertNil(MenuBarLabel.availableSymbolName("sonora.not.a.symbol",
+                                                      fallback: "sonora.also.not.a.symbol"))
+        // …and an unknown name still renders the dots, not an empty image.
+        let image = MenuBarLabel.image(level: 90, style: .dots, symbolName: "sonora.not.a.symbol")
+        XCTAssertEqual(image.size.width, MenuBarLabel.width)
     }
 }
 
