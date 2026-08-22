@@ -16,6 +16,12 @@ jobs:
         run: swift test
       - name: Build DMG
         run: ./make-dmg.sh
+      # A second, unversioned copy so that
+      # /releases/latest/download/HeadsetCompanion.dmg is a permanent link.
+      # The Chrome extension's welcome page points at it, so it must resolve
+      # for every future release without anyone editing the extension.
+      - name: Add stable-named copy
+        run: cp dist/HeadsetCompanion-*.dmg dist/HeadsetCompanion.dmg
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}

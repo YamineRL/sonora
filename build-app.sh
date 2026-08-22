@@ -16,8 +16,8 @@ mkdir -p "$APP/Contents/MacOS"
 cp Info.plist "$APP/Contents/Info.plist"
 cp .build/release/HeadsetCompanion "$APP/Contents/MacOS/HeadsetCompanion"
 chmod +x "$APP/Contents/MacOS/HeadsetCompanion"
-# Shipped inside the bundle so an installed copy can register/unregister its
-# own LaunchAgent (the README's install step).
+# Shipped inside the bundle so an installed copy can still use the scripted
+# LaunchAgent (the advanced alternative to the Start at login switch).
 mkdir -p "$APP/Contents/Resources"
 cp install-launch-agent.sh "$APP/Contents/Resources/install-launch-agent.sh"
 chmod +x "$APP/Contents/Resources/install-launch-agent.sh"

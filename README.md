@@ -54,11 +54,9 @@ headset battery at all**.
 2. Drag **HeadsetCompanion** into **Applications**.
 3. First launch only: **right-click the app → Open → Open**. The app is not
    notarised by Apple (it's free and unsigned), so Gatekeeper asks once.
-4. Optional — start it at login:
-   ```bash
-   /Applications/HeadsetCompanion.app/Contents/Resources/install-launch-agent.sh
-   ```
-   or add it under **System Settings → General → Login Items**.
+4. Optional — start it at login: click the menu bar icon → **Settings…** and
+   turn on **Start at login**. macOS may ask you to approve the item once
+   under **System Settings → General → Login Items**.
 
 That's the last time you download anything by hand.
 
@@ -113,8 +111,8 @@ An Apple Developer ID costs $99/year and this app is free. The trade is one
 right-click at first launch. Everything after that is silent.
 
 **Can I uninstall it cleanly?**
+Turn **Start at login** off in Settings…, then:
 ```bash
-/Applications/HeadsetCompanion.app/Contents/Resources/install-launch-agent.sh --uninstall
 rm -rf /Applications/HeadsetCompanion.app
 defaults delete io.sonora.headsetcompanion
 ```
@@ -124,7 +122,7 @@ defaults delete io.sonora.headsetcompanion
 ```bash
 git clone https://github.com/YamineRL/sonora.git
 cd sonora
-swift test          # 99 tests
+swift test          # 109 tests
 ./build-app.sh      # -> HeadsetCompanion.app
 ./make-dmg.sh       # -> dist/HeadsetCompanion-<version>.dmg
 ```

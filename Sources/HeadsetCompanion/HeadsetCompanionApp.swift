@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import ServiceManagement
 import SwiftUI
 
 /// HeadsetCompanion menu bar app.
@@ -76,6 +77,7 @@ final class StatusItemController {
     private let audio: AudioOutputController
     private let mediaKeys: MediaKeyMonitor
     private let updater: Updater
+    private let loginItem = LoginItem()
     private var cancellables = Set<AnyCancellable>()
 
     init(monitor: BatteryMonitor, audio: AudioOutputController, mediaKeys: MediaKeyMonitor, updater: Updater) {
@@ -146,7 +148,9 @@ final class StatusItemController {
             return
         }
         let host = NSHostingController(
-            rootView: SettingsView(updater: updater, mediaKeyStateText: mediaKeyStateText)
+            rootView: SettingsView(
+                updater: updater, loginItem: loginItem, mediaKeyStateText: mediaKeyStateText
+            )
         )
         let window = NSWindow(contentViewController: host)
         window.title = "HeadsetCompanion Settings"
@@ -489,6 +493,7 @@ struct MenuRowButton<Label: View>: View {
 struct SettingsView: View {
 
     @ObservedObject var updater: Updater
+    @ObservedObject var loginItem: LoginItem
     let mediaKeyStateText: String
 
     @AppStorage(BatteryStyle.key) private var batteryStyle = BatteryStyle.fallback
@@ -503,6 +508,26 @@ struct SettingsView: View {
                     }
                     .pickerStyle(.segmented)
                     .help("How the menu bar shows the headset battery.")
+
+                    Toggle("Start at login", isOn: Binding(
+                        get: { loginItem.isEnabled },
+                        set: { loginItem.setEnabled($0) }
+                    ))
+                    .help("Registers HeadsetCompanion with macOS as a login item.")
+                    if let message = loginItem.message {
+                        HStack(spacing: 8) {
+                            Text(message)
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                            if loginItem.needsApproval {
+                                Button("Open…") { SMAppService.openSystemSettingsLoginItems() }
+                                    .buttonStyle(.link)
+                            }
+                        }
+                    }
+                } header: {
+                    Text("General")
                 }
 
                 Section {
@@ -532,6 +557,9 @@ struct SettingsView: View {
             .formStyle(.grouped)
         }
         .frame(width: 420)
+        // The user can flip the login item in System Settings while this
+        // window is closed, so ask macOS again every time it opens.
+        .onAppear { loginItem.refresh() }
         .fixedSize(horizontal: false, vertical: true)
     }
 

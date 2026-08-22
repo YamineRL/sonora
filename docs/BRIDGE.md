@@ -131,7 +131,22 @@ system *Sound* menu, so that one can be removed from the menu bar:
 
 To stop: click the icon → Quit (or `killall HeadsetCompanion`).
 
-## Start at login (LaunchAgent)
+## Start at login
+
+The supported way is the **Start at login** switch in the app's Settings…
+panel: it registers the bundle with `SMAppService.mainApp` (macOS 13+), so
+the item is visible — and revocable — under *System Settings → General →
+Login Items*. Turning it on also removes any
+`~/Library/LaunchAgents/io.sonora.headsetcompanion.plist` left by the script
+below, because two mechanisms starting the app at login would race for the
+exclusive bridge port. If the app can't be registered (a copy run straight
+from the DMG, or one still waiting for approval), the reason is shown under
+the switch.
+
+### Advanced: the scripted LaunchAgent
+
+Still shipped for unattended installs, and the only option if you want
+`KeepAlive` (SMAppService does not restart a crashed app):
 
 ```bash
 ./build-app.sh               # the bundle must exist first
@@ -139,7 +154,7 @@ To stop: click the icon → Quit (or `killall HeadsetCompanion`).
 ./install-launch-agent.sh --uninstall
 ```
 
-launchd runs the bundle's executable directly with `RunAtLoad` and
+Use one or the other, not both. launchd runs the bundle's executable directly with `RunAtLoad` and
 `KeepAlive` on non-zero exit, so the bridge starts at login and is relaunched
 after a crash (a clean Quit from the menu bar stays quit). launchd's own
 stdout/stderr go to `~/Library/Logs/headset-companion.launchd.log`. After a
@@ -327,7 +342,8 @@ on them.
   also attempts a direct reconnect to the last device; the system poll
   independently re-covers linked devices.
 - No code signing yet, so macOS may re-prompt for Bluetooth after a rebuild.
-  Login start is covered by `./install-launch-agent.sh`.
+  Login start is covered by the **Start at login** switch (see *Start at
+  login*).
 - With multiple Bluetooth headphones around, the bridge follows the current
   audio output; set `SONORA_BT_NAME` to pin one instead.
 - Media-key capture is not device-specific: while the bridge is the
