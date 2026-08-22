@@ -12,7 +12,8 @@ swift test >/dev/null
 /usr/libexec/PlistBuddy -c "Set CFBundleShortVersionString $VERSION" Info.plist
 BUILD="$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' Info.plist)"
 /usr/libexec/PlistBuddy -c "Set CFBundleVersion $((BUILD + 1))" Info.plist
-git commit -am "Release $VERSION"
+git add Info.plist
+git diff --cached --quiet || git commit -m "Release $VERSION"
 git tag "v$VERSION"
 git push && git push origin "v$VERSION"
 echo "Tagged v$VERSION — watch: gh run watch"

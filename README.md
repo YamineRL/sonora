@@ -121,7 +121,7 @@ defaults delete io.sonora.headsetcompanion
 ```bash
 git clone https://github.com/YamineRL/sonora.git
 cd sonora
-swift test          # 97 tests
+swift test          # 99 tests
 ./build-app.sh      # -> HeadsetCompanion.app
 ./make-dmg.sh       # -> dist/HeadsetCompanion-<version>.dmg
 ```
