@@ -283,6 +283,14 @@ final class MenuBarAirPodsGlyphTests: XCTestCase {
         XCTAssertEqual(symbol("Yamine’s AirPods Pro"), "airpods.pro")
     }
 
+    /// The names as macOS actually pairs them on this machine — a renamed
+    /// pair ("AirPods de M") still has to resolve, since the model words are
+    /// all the glyph has to go on.
+    func testRealPairedNames() {
+        XCTAssertEqual(symbol("AirPods de M"), "airpods")
+        XCTAssertEqual(symbol("Yamine\u{2019}s AirPods Pro"), "airpods.pro")
+    }
+
     /// A USB DAC that happens to be called "AirPods dock" is not a headset:
     /// the name only refines the Bluetooth glyph, it never overrides the
     /// transport mapping.
