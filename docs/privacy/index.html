@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sonora — Privacy</title>
+<meta name="description" content="Sonora collects no personal data. No analytics, no accounts, no tracking, no cookies, and no server that receives anything about you. What the extension and the Mac app touch, and why.">
+<link rel="icon" href="../logo.png">
+<meta property="og:title" content="Sonora — Privacy">
+<meta property="og:description" content="No analytics, no accounts, no tracking, no server. What Sonora touches, and why.">
+<meta property="og:image" content="https://yaminerl.github.io/sonora/logo.png">
+<meta property="og:type" content="website">
+<style>
+:root {
+  --bg: #fbfbfd;
+  --bg-raised: #ffffff;
+  --bg-sunken: #f2f4f0;
+  --ink: #1c1c22;
+  --ink-soft: #55555f;
+  --ink-faint: #8a8a95;
+  --line: #e3e6e0;
+  --accent: #2f7a3c;
+  --accent-ink: #ffffff;
+  --warn-bg: #fff8e6;
+  --warn-line: #f0d69a;
+  --warn-ink: #6b4e07;
+  --shadow: 0 1px 2px rgba(0,0,0,.05), 0 12px 32px rgba(20,30,20,.08);
+  --radius: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f110f;
+    --bg-raised: #171a17;
+    --bg-sunken: #1d211d;
+    --ink: #f2f4f0;
+    --ink-soft: #b4b8b2;
+    --ink-faint: #7e847d;
+    --line: #2a2f2a;
+    --accent: #8fdc7a;
+    --accent-ink: #0f110f;
+    --warn-bg: #2a2313;
+    --warn-line: #4d4225;
+    --warn-ink: #f0d69a;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 12px 32px rgba(0,0,0,.45);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f110f;
+  --bg-raised: #171a17;
+  --bg-sunken: #1d211d;
+  --ink: #f2f4f0;
+  --ink-soft: #b4b8b2;
+  --ink-faint: #7e847d;
+  --line: #2a2f2a;
+  --accent: #8fdc7a;
+  --accent-ink: #0f110f;
+  --warn-bg: #2a2313;
+  --warn-line: #4d4225;
+  --warn-ink: #f0d69a;
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 12px 32px rgba(0,0,0,.45);
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 17px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+img { max-width: 100%; height: auto; display: block; }
+a { color: var(--accent); }
+code, kbd {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .92em;
+}
+kbd {
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  padding: 1px 7px;
+  white-space: nowrap;
+}
+
+.wrap { width: 100%; max-width: 920px; margin: 0 auto; padding: 0 24px; }
+
+/* ---------- hero ---------- */
+.hero { text-align: center; padding: 76px 0 8px; }
+.hero img.logo { width: 104px; height: 104px; margin: 0 auto 22px; border-radius: 22px; }
+.hero h1 { font-size: 3rem; letter-spacing: -.025em; margin: 0 0 10px; line-height: 1.1; }
+.hero .tagline { font-size: 1.3rem; color: var(--ink-soft); margin: 0 0 34px; }
+
+.cta { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; align-items: center; }
+.btn {
+  display: inline-block;
+  background: var(--accent);
+  color: var(--accent-ink);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 1.05rem;
+  padding: 14px 30px;
+  border-radius: 11px;
+  box-shadow: var(--shadow);
+}
+.btn:hover { filter: brightness(1.08); }
+.btn.ghost {
+  background: transparent;
+  color: var(--ink-soft);
+  box-shadow: none;
+  border: 1px solid var(--line);
+  font-weight: 500;
+}
+.cta .btn { flex: 0 1 auto; min-width: 232px; text-align: center; }
+.cta-sub { margin: 16px 0 0; font-size: .95rem; color: var(--ink-faint); }
+.cta-sub a { color: var(--ink-soft); }
+.cta-sub span { margin: 0 10px; color: var(--line); }
+.meta { margin-top: 14px; color: var(--ink-faint); font-size: .92rem; }
+
+/* ---------- sections ---------- */
+section { padding: 60px 0; }
+section.sunken { background: var(--bg-sunken); border-block: 1px solid var(--line); }
+h2 { font-size: 1.85rem; letter-spacing: -.02em; margin: 0 0 8px; }
+h2 + .lede { color: var(--ink-soft); margin: 0 0 32px; font-size: 1.08rem; }
+h3 { font-size: 1.15rem; margin: 0 0 6px; }
+
+.grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+.card {
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 22px;
+}
+.card p { margin: 0; color: var(--ink-soft); font-size: .97rem; }
+.card .icon { font-size: 1.5rem; line-height: 1; margin-bottom: 12px; text-align: center; }
+
+.shot {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  background: var(--bg-raised);
+}
+/* The screenshots are captured at their real point size, which is narrower
+   than the column: cap each one so it is never blown up past its own pixels. */
+.shot img { width: 100%; }
+.shot.menubar { max-width: 528px; margin: 0 auto; }
+.shot.menu { max-width: 360px; margin: 0 auto; }
+.shot.settings { max-width: 400px; margin: 0 auto; }
+figure { margin: 0 0 28px; }
+figcaption { color: var(--ink-faint); font-size: .9rem; text-align: center; margin-top: 10px; }
+.duo { display: grid; gap: 28px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); align-items: start; }
+.duo figure { margin: 0; }
+
+/* ---------- steps ---------- */
+ol.steps { list-style: none; counter-reset: step; margin: 0; padding: 0; }
+ol.steps > li {
+  counter-increment: step;
+  position: relative;
+  padding: 0 0 26px 52px;
+  border-left: 2px solid var(--line);
+  margin-left: 15px;
+}
+ol.steps > li:last-child { border-left-color: transparent; padding-bottom: 0; }
+ol.steps > li::before {
+  content: counter(step);
+  position: absolute;
+  left: -16px;
+  top: -2px;
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 700;
+  font-size: .95rem;
+  display: grid;
+  place-items: center;
+}
+ol.steps h3 { margin-top: 0; }
+ol.steps p { margin: 0; color: var(--ink-soft); }
+
+.note {
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-line);
+  color: var(--warn-ink);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  margin: 26px 0;
+  font-size: .97rem;
+}
+.note strong { color: inherit; }
+
+pre {
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 16px;
+  overflow-x: auto;
+  margin: 14px 0;
+  font-size: .9rem;
+  line-height: 1.6;
+}
+:where(section.sunken) pre { background: var(--bg); }
+
+table { width: 100%; border-collapse: collapse; font-size: .97rem; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+th { color: var(--ink-faint); font-weight: 600; font-size: .85rem; text-transform: uppercase; letter-spacing: .04em; }
+td:first-child { width: 168px; white-space: nowrap; }
+.scroller { overflow-x: auto; }
+
+details {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0 18px;
+  background: var(--bg-raised);
+  margin-top: 16px;
+}
+summary { cursor: pointer; font-weight: 600; padding: 16px 0; }
+details[open] summary { border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+details > :last-child { margin-bottom: 16px; }
+
+.centre { text-align: center; margin-top: 28px; }
+
+footer {
+  padding: 44px 0 60px;
+  text-align: center;
+  color: var(--ink-faint);
+  font-size: .93rem;
+  border-top: 1px solid var(--line);
+}
+footer a { margin: 0 10px; }
+
+@media (max-width: 600px) {
+  .hero { padding-top: 52px; }
+  .hero h1 { font-size: 2.3rem; }
+  .hero .tagline { font-size: 1.1rem; }
+  td:first-child { width: auto; white-space: normal; }
+}
+</style>
+<style>
+/* privacy page: a single reading column on top of the shared tokens */
+.hero.slim { padding: 56px 0 4px; }
+.hero.slim img.logo { width: 72px; height: 72px; margin-bottom: 18px; border-radius: 16px; }
+.hero.slim h1 { font-size: 2.4rem; }
+.prose { max-width: 720px; margin: 0 auto; }
+.prose h2 { margin-top: 42px; }
+.prose h2:first-of-type { margin-top: 0; }
+.prose h3 { margin-top: 26px; }
+.prose p, .prose li { color: var(--ink-soft); }
+.prose ul { padding-left: 22px; margin: 12px 0; }
+.prose li { margin-bottom: 8px; }
+.prose li strong, .prose p strong { color: var(--ink); }
+.lead { font-size: 1.12rem; color: var(--ink) !important; }
+.updated { color: var(--ink-faint); font-size: .92rem; margin-top: 40px; }
+</style>
+</head>
+<body>
+
+<header class="hero slim">
+  <div class="wrap">
+    <a href="../"><img class="logo" src="../logo.png" alt="Sonora"></a>
+    <h1>Privacy</h1>
+    <p class="tagline">What Sonora touches, and what it does not.</p>
+  </div>
+</header>
+
+<section>
+  <div class="wrap prose">
+
+    <p class="lead">Sonora collects no personal data. There are no analytics, no crash reporting, no accounts, no tracking, no cookies, no advertising identifiers, and no Sonora server anywhere for data to be sent to. Nobody &mdash; including me &mdash; receives anything about you, your devices, your browsing or your listening.</p>
+
+    <p>Sonora is two separate pieces that work together: a Chrome extension, and <strong>HeadsetCompanion</strong>, a macOS menu-bar app. Either one runs perfectly well on its own. This page covers both.</p>
+
+    <h2>The Chrome extension</h2>
+
+    <p>The extension finds every browser tab that is playing audio and lets you control it from one popup. To do that it needs to look at your tabs and at the media elements inside pages. That is the whole job, and everything below exists for it.</p>
+
+    <h3>What the permissions are for</h3>
+
+    <p>These are the exact permissions declared in the extension's manifest:</p>
+    <ul>
+      <li><strong><code>tabs</code></strong> &mdash; lists your open tabs so the popup can show which ones are making noise, with their title and site. Sonora reads this list in memory to draw the popup; it is not logged or sent anywhere.</li>
+      <li><strong><code>storage</code></strong> &mdash; saves your own settings in the browser. See <a href="#stored">what is stored</a> below.</li>
+      <li><strong><code>scripting</code></strong> &mdash; injects the media-control script into a tab that was already open before you installed Sonora, so those tabs work too instead of needing a reload.</li>
+      <li><strong><code>commands</code></strong> &mdash; registers the keyboard shortcuts (<kbd>Alt</kbd>+<kbd>M</kbd> to play/pause, <kbd>Alt</kbd>+<kbd>S</kbd> to switch source).</li>
+      <li><strong><code>alarms</code></strong> &mdash; a one-minute timer that wakes the extension's background worker. Chrome shuts that worker down aggressively; the alarm is what brings the headset media-key connection back up afterwards.</li>
+      <li><strong><code>&lt;all_urls&gt;</code> (host permission and content script)</strong> &mdash; the honest one. Audio can play on any site, so the media-control script has to be allowed to run on any site. Chrome has no "only pages that play audio" permission to ask for.</li>
+    </ul>
+
+    <h3>What the in-page script actually reads</h3>
+
+    <p>On a page, Sonora looks only at the page's own <code>&lt;audio&gt;</code> and <code>&lt;video&gt;</code> elements and the standard media metadata browsers already expose for media controls. Specifically: the page URL and hostname, the page title, the favicon, the <code>og:description</code>/<code>description</code> meta tag (first 200 characters), the track title and artist from the Media Session API, the artwork URL, and playback state &mdash; playing or paused, muted, volume, position, duration.</p>
+
+    <p>That snapshot goes to the extension's own background worker so the popup can draw a row for the tab. It goes nowhere else. Sonora does not read page text, form fields, passwords, cookies, or anything you type, and it does not modify pages.</p>
+
+    <h3 id="stored">What is stored, and where</h3>
+
+    <p>In <code>chrome.storage.local</code>, which lives in your browser profile on your own machine:</p>
+    <ul>
+      <li>your settings &mdash; "resume last source", "keep tabs awake", preferred volume, muted or not;</li>
+      <li>the tab id of the source you last controlled (a number Chrome assigns, meaningless outside your session);</li>
+      <li>a counter for headset media-key events already handled, so a restarted worker does not replay old button presses.</li>
+    </ul>
+    <p>In <code>chrome.storage.session</code>, cleared when you quit the browser: the list of tab ids that reported a media element.</p>
+    <p>That is the complete list. No history, no URLs, no listening record. None of it is synced, and none of it leaves the device.</p>
+
+    <h3>The microphone prompt</h3>
+
+    <p>If you want to pick which audio output a tab plays through, Sonora offers a one-time microphone permission. This is a Chrome rule, not a Sonora one: the browser hides the real names of your output devices ("MacBook Pro Speakers", "WH-1000XM4") until the extension has held a microphone permission once. Sonora asks for the microphone, immediately stops the audio track it gets back, and keeps nothing. No audio is recorded, buffered, or transmitted. The prompt is entirely optional &mdash; decline it and everything still works, with outputs listed as "Output 1", "Output 2".</p>
+
+    <h3>Network requests</h3>
+
+    <p>The extension makes exactly two kinds of network request, both to your own machine:</p>
+    <ul>
+      <li><code>http://127.0.0.1:8745/battery</code> &mdash; asks the Mac app for the headset battery when the popup is open.</li>
+      <li><code>http://127.0.0.1:8745/events</code> &mdash; a long poll so a press of the button on your headset can pause the tab.</li>
+    </ul>
+    <p>If <code>127.0.0.1</code> does not answer, the popup tries <code>localhost</code> on the same port. That is the extent of it. There is no other outbound request of any kind &mdash; no home-phoning, no version ping, no remote configuration, no remote code. The only external address in the extension at all is a plain link to the GitHub release page on the welcome screen, and nothing is fetched from it unless you click it.</p>
+
+    <h2>The local bridge</h2>
+
+    <p>The bridge is the small HTTP server inside HeadsetCompanion, bound to <code>127.0.0.1</code> &mdash; the loopback interface. Loopback traffic never reaches a network card; it cannot leave your Mac, and no other machine can reach it. It exists so the browser, which has no way to see a classic Bluetooth headset's battery, can get the number from the app that can.</p>
+
+    <p>It is optional in both directions. Without the app, the extension works and simply shows no battery. Without the extension, the app shows the battery in your menu bar as usual.</p>
+
+    <h2>The macOS app</h2>
+
+    <h3>What it reads</h3>
+
+    <p>HeadsetCompanion reads your headset's battery level from macOS itself, through public system interfaces: CoreBluetooth's standard battery service, <code>IOBluetooth</code>'s list of paired devices, and the <code>system_profiler SPBluetoothDataType</code> command. It also reads and sets your audio output device so the menu can replace the Sound menu. What it learns is a device name and a percentage. That stays on your Mac.</p>
+
+    <p>The app writes a plain-text log to <code>~/Library/Logs/headset-companion.log</code> to make problems diagnosable &mdash; it can contain your headset's name and battery readings. It is a local file, it is never uploaded, and you can delete it whenever you like.</p>
+
+    <h3>The update check</h3>
+
+    <p>This is the one thing in Sonora that talks to the internet, and it is worth being precise about.</p>
+
+    <p>Once a day, the app sends an HTTPS <code>GET</code> to <code>https://api.github.com/repos/YamineRL/sonora/releases/latest</code> to see whether a newer version exists. The request carries no identifier of you: no account, no licence key, no device id, no installation id, no usage data. It sends an <code>Accept</code> header and the user-agent string <code>HeadsetCompanion-updater</code>. Your current version number is not sent either &mdash; the comparison happens locally after the answer arrives.</p>
+
+    <p>What it unavoidably does reveal, as any HTTPS request does, is <strong>your IP address to GitHub</strong>, along with the fact that a HeadsetCompanion updater asked about this repository. That is GitHub's to handle under their own privacy policy, not mine &mdash; I never see it. If a newer version is found, the app then downloads the <code>.dmg</code> from GitHub's release assets, which reveals the same thing again.</p>
+
+    <p><strong>You can turn it off.</strong> In the app's Settings there is a "Check for updates daily" switch. It is on by default; turn it off and the app makes no network request at all unless you press "Check for Updates" yourself.</p>
+
+    <h2>Children, and data you never gave</h2>
+
+    <p>Sonora has no accounts and asks for no personal information, so there is nothing to collect from anyone of any age. There is no data to request, correct, export or delete, because none is held: everything Sonora knows lives on your own machine, and uninstalling removes it.</p>
+
+    <h2>Check for yourself</h2>
+
+    <p>You do not have to take my word for any of this. The whole of Sonora &mdash; extension and Mac app &mdash; is public and readable at <a href="https://github.com/YamineRL/sonora" rel="noopener">github.com/YamineRL/sonora</a>. Every claim on this page corresponds to code you can search: the permission list is in <code>sonora-extension/manifest.json</code>, the only network calls are in <code>popup/bridge.ts</code>, <code>background/service-worker.ts</code> and <code>Sources/HeadsetCompanion/Updater.swift</code>, and the loopback server is in <code>Sources/HeadsetCompanion/BridgeServer.swift</code>.</p>
+
+    <h2>Changes, and getting in touch</h2>
+
+    <p>If this policy ever changes, the changed version will be published here with a new date below. Questions, corrections, or something that looks wrong: open an issue at <a href="https://github.com/YamineRL/sonora/issues" rel="noopener">github.com/YamineRL/sonora/issues</a>.</p>
+
+    <p class="updated">Last updated 23 August 2026.</p>
+
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>
+      <a href="../">Sonora</a>
+      <a href="https://github.com/YamineRL/sonora">Source on GitHub</a>
+      <a href="https://github.com/YamineRL/sonora/issues">Report a problem</a>
+    </p>
+    <p>Source under <a href="https://github.com/YamineRL/sonora/blob/main/LICENSE">FSL-1.1-ALv2</a> (Functional Source License 1.1, converting to Apache 2.0) &middot; &copy; 2026 YamineRL &middot; "Sonora" and its icon are unregistered trademarks.</p>
+  </div>
+</footer>
+
+</body>
+</html>
