@@ -107,7 +107,7 @@ final class StatusItemController {
     private var appearanceObservation: NSKeyValueObservation?
 
     private var style: BatteryStyle {
-        BatteryStyle(rawValue: UserDefaults.standard.string(forKey: BatteryStyle.key) ?? "") ?? .percent
+        BatteryStyle(rawValue: UserDefaults.standard.string(forKey: BatteryStyle.key) ?? "") ?? .fallback
     }
 
     /// One composite image: the headphones glyph with the battery underneath
@@ -199,6 +199,8 @@ final class StatusItemController {
 enum BatteryStyle: String, CaseIterable, Identifiable {
     case percent, dots
     static let key = "menuBarBatteryStyle"
+    /// What a fresh install shows: the dots, which take the least width.
+    static let fallback: BatteryStyle = .dots
     var id: String { rawValue }
     var title: String {
         switch self {
@@ -482,7 +484,7 @@ struct SettingsView: View {
     @ObservedObject var updater: Updater
     let mediaKeyStateText: String
 
-    @AppStorage(BatteryStyle.key) private var batteryStyle = BatteryStyle.percent
+    @AppStorage(BatteryStyle.key) private var batteryStyle = BatteryStyle.fallback
     @AppStorage(Updater.autoCheckKey) private var autoCheckUpdates = true
 
     var body: some View {

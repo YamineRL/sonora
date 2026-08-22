@@ -197,3 +197,16 @@ final class UpdateFeedTests: XCTestCase {
                        "https://api.github.com/repos/\(UpdateFeed.repo)/releases/latest")
     }
 }
+
+/// The menu bar style a fresh install gets.
+final class BatteryStyleDefaultTests: XCTestCase {
+    func testFallbackIsDots() {
+        XCTAssertEqual(BatteryStyle.fallback, .dots)
+    }
+
+    func testUnsetOrUnknownDefaultsToFallback() {
+        XCTAssertEqual(BatteryStyle(rawValue: "") ?? .fallback, .dots)
+        XCTAssertEqual(BatteryStyle(rawValue: "sparklines") ?? .fallback, .dots)
+        XCTAssertEqual(BatteryStyle(rawValue: "percent"), .percent)
+    }
+}

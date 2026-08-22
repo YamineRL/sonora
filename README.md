@@ -33,7 +33,7 @@ headset battery at all**.
 
 | | |
 |---|---|
-| **Battery at a glance** | Five green dots, or a tiny percentage, right under a headphones glyph. One menu-bar slot — narrower than the clock. |
+| **Battery at a glance** | Five green dots (the default), or a tiny percentage, right under a headphones glyph. One menu-bar slot — narrower than the clock. |
 | **Actually current** | Re-reads the level from a fresh process every 10 s, which is the only way to dodge the per-process cache that makes other tools (and macOS itself) report yesterday's number. |
 | **Any headset** | Sony, Bose, AirPods, Jabra, Anker, the €19 pair from the airport. Nothing in the app names a model: it reads whatever the system Bluetooth stack reports, with a BLE Battery Service fallback. |
 | **Replaces the Sound menu** | Volume slider, every output device, and each headset's battery on its own row. One click instead of Control Centre → Sound → hover. |
