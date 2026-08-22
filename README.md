@@ -42,8 +42,11 @@ headset battery at all**.
 | **Media keys that behave** | Optionally claims the play/pause keys so your headset's buttons control the tab you mean, not whatever Chrome last touched. |
 
 <p align="center">
-  <img src="docs/img/menu.png" alt="The Sound menu: volume, output devices with per-device battery, battery display style, update controls" width="420">
+  <img src="docs/img/menu.png" alt="The Sound menu: volume and output devices, each with its own battery" width="360">
+  &nbsp;&nbsp;
+  <img src="docs/img/settings.png" alt="Settings: menu bar battery style, daily update check, media-key routing and version" width="400">
 </p>
+<p align="center"><sub>One click for sound. Everything else lives in Settings.</sub></p>
 
 ## Install
 

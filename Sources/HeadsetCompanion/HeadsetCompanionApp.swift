@@ -134,6 +134,31 @@ final class StatusItemController {
         button.toolTip = "\(monitor.deviceName ?? "Headset") — \(battery)%"
     }
 
+    private var settingsWindow: NSWindow?
+
+    /// Shows (or re-focuses) the Settings panel. The app is LSUIElement, so
+    /// it has to activate itself for the window to come forward.
+    func showSettings() {
+        popover.performClose(nil)
+        if let window = settingsWindow {
+            NSApp.activate(ignoringOtherApps: true)
+            window.makeKeyAndOrderFront(nil)
+            return
+        }
+        let host = NSHostingController(
+            rootView: SettingsView(updater: updater, mediaKeyStateText: mediaKeyStateText)
+        )
+        let window = NSWindow(contentViewController: host)
+        window.title = "HeadsetCompanion Settings"
+        window.styleMask = [.titled, .closable, .fullSizeContentView]
+        window.titlebarAppearsTransparent = true
+        window.isReleasedWhenClosed = false
+        window.center()
+        settingsWindow = window
+        NSApp.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
+    }
+
     @objc private func toggle() {
         if popover.isShown {
             popover.performClose(nil)
@@ -144,7 +169,8 @@ final class StatusItemController {
                 audio: audio,
                 monitor: monitor,
                 mediaKeyStateText: mediaKeyStateText,
-                updater: updater
+                updater: updater,
+                openSettings: { [weak self] in self?.showSettings() }
             )
         )
         guard let button = item.button else { return }
@@ -274,8 +300,8 @@ struct SoundMenuView: View {
     @ObservedObject var monitor: BatteryMonitor
     let mediaKeyStateText: String
     @ObservedObject var updater: Updater
-    @AppStorage(BatteryStyle.key) private var batteryStyle = BatteryStyle.percent
-    @AppStorage(Updater.autoCheckKey) private var autoCheckUpdates = true
+    /// Opens the Settings panel (owned by `StatusItemController`).
+    let openSettings: () -> Void
 
     /// Devices don't all notify on volume changes (and nothing notifies when
     /// another app changes it), so the open menu also polls once a second.
@@ -309,77 +335,23 @@ struct SoundMenuView: View {
             Divider()
                 .padding(.horizontal, 12)
 
-            Picker("Battery", selection: $batteryStyle) {
-                ForEach(BatteryStyle.allCases) { Text($0.title).tag($0) }
-            }
-            .pickerStyle(.segmented)
-            .controlSize(.small)
-            .padding(.horizontal, 12)
-            .help("How the menu bar shows the headset battery.")
-
-            Divider()
-                .padding(.horizontal, 12)
-
             VStack(alignment: .leading, spacing: 2) {
                 MenuRowButton(action: openSoundSettings) {
                     Text("Sound Settings…")
                 }
-                MenuRowButton(action: checkForUpdates) {
-                    Text(updateRowTitle)
-                        .foregroundStyle(updateRowSecondary ? .secondary : .primary)
+                MenuRowButton(action: openSettings) {
+                    Text("Settings…")
                 }
-                Toggle("Check for updates daily", isOn: $autoCheckUpdates)
-                    .toggleStyle(.checkbox)
-                    .controlSize(.small)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
                 MenuRowButton(action: { NSApplication.shared.terminate(nil) }) {
                     Text("Quit")
                         .foregroundStyle(.secondary)
                 }
             }
             .padding(.horizontal, 6)
-
-            Text("v\(updater.currentVersion) · Media keys: \(mediaKeyStateText)")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
-                .padding(.horizontal, 12)
-                .padding(.bottom, 10)
-                .help("Which app MediaRemote routes headset and F7–F9 taps to.")
+            .padding(.bottom, 10)
         }
         .frame(width: 280)
         .onReceive(tick) { _ in audio.refreshVolume() }
-    }
-
-    // MARK: - Updates
-
-    /// One row that doubles as status: click to check, click again to
-    /// install once a newer release is known.
-    private var updateRowTitle: String {
-        switch updater.state {
-        case .idle: return "Check for Updates…"
-        case .checking: return "Checking for updates…"
-        case .upToDate: return "Up to date (v\(updater.currentVersion))"
-        case .available(let r): return "Update to v\(r.version)…"
-        case .downloading: return "Downloading update…"
-        case .installing: return "Installing… (relaunches)"
-        case .failed(let msg): return "Update failed — \(msg)"
-        }
-    }
-
-    private var updateRowSecondary: Bool {
-        switch updater.state {
-        case .checking, .downloading, .installing, .upToDate: return true
-        default: return false
-        }
-    }
-
-    private func checkForUpdates() {
-        switch updater.state {
-        case .available(let r): Task { await updater.install(r) }
-        case .checking, .downloading, .installing: break
-        default: Task { await updater.check(install: false) }
-        }
     }
 
     // MARK: - Volume
@@ -493,5 +465,93 @@ struct MenuRowButton<Label: View>: View {
         if hovering { return AnyShapeStyle(Color.primary.opacity(0.14)) }
         if highlighted { return AnyShapeStyle(Color.primary.opacity(0.08)) }
         return AnyShapeStyle(Color.clear)
+    }
+}
+
+// MARK: - Settings panel
+
+/// The Settings window: everything that isn't picking an output device, so
+/// the menu itself stays a short list.
+struct SettingsView: View {
+
+    @ObservedObject var updater: Updater
+    let mediaKeyStateText: String
+
+    @AppStorage(BatteryStyle.key) private var batteryStyle = BatteryStyle.percent
+    @AppStorage(Updater.autoCheckKey) private var autoCheckUpdates = true
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Form {
+                Section {
+                    Picker("Menu bar battery:", selection: $batteryStyle) {
+                        ForEach(BatteryStyle.allCases) { Text($0.title).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    .help("How the menu bar shows the headset battery.")
+                }
+
+                Section {
+                    Toggle("Check for updates daily", isOn: $autoCheckUpdates)
+                        .help("Looks for a newer release once a day and installs it.")
+                    HStack(spacing: 10) {
+                        Button(updateButtonTitle, action: checkForUpdates)
+                            .disabled(updateBusy)
+                        if updateBusy { ProgressView().controlSize(.small) }
+                        Text(updateStatusText)
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                } header: {
+                    Text("Updates")
+                }
+
+                Section {
+                    LabeledContent("Media keys go to:", value: mediaKeyStateText)
+                        .help("Which app MediaRemote routes headset and F7–F9 taps to.")
+                    LabeledContent("Version:", value: "v\(updater.currentVersion)")
+                } header: {
+                    Text("About")
+                }
+            }
+            .formStyle(.grouped)
+        }
+        .frame(width: 420)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    // MARK: - Updates
+
+    private var updateBusy: Bool {
+        switch updater.state {
+        case .checking, .downloading, .installing: return true
+        default: return false
+        }
+    }
+
+    private var updateButtonTitle: String {
+        if case .available = updater.state { return "Install Update" }
+        return "Check for Updates"
+    }
+
+    private var updateStatusText: String {
+        switch updater.state {
+        case .idle: return ""
+        case .checking: return "Checking…"
+        case .upToDate: return "Up to date (v\(updater.currentVersion))"
+        case .available(let r): return "v\(r.version) is available"
+        case .downloading: return "Downloading…"
+        case .installing: return "Installing — the app will relaunch"
+        case .failed(let msg): return msg
+        }
+    }
+
+    private func checkForUpdates() {
+        switch updater.state {
+        case .available(let r): Task { await updater.install(r) }
+        case .checking, .downloading, .installing: break
+        default: Task { await updater.check(install: false) }
+        }
     }
 }
