@@ -57,7 +57,8 @@ final class Updater: ObservableObject {
     func start() {
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 60 * 60, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.tick() }
+            guard let self else { return }
+            Task { @MainActor in self.tick() }
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 20) { [weak self] in self?.tick() }
     }

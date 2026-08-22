@@ -98,7 +98,8 @@ final class StatusItemController {
             .sink { [weak self] _ in self?.relabel() }
             .store(in: &cancellables)
         appearanceObservation = item.button?.observe(\.effectiveAppearance) { [weak self] _, _ in
-            Task { @MainActor in self?.relabel() }
+            guard let self else { return }
+            Task { @MainActor in self.relabel() }
         }
         relabel()
     }
