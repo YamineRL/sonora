@@ -5,6 +5,12 @@
   <sub>A 500 KB menu-bar app that also replaces Apple's Sound menu — and feeds the Sonora Chrome extension.</sub>
 </p>
 
+<p align="center"><a href="https://yaminerl.github.io/sonora/"><strong>sonora on the web →</strong></a></p>
+
+<p align="center">
+  <sub>Both halves of Sonora live here: the macOS app in <code>Sources/</code>, the Chrome extension in <a href="sonora-extension/"><code>sonora-extension/</code></a>. Both free, both source in the open.</sub>
+</p>
+
 <p align="center">
   <a href="https://github.com/YamineRL/sonora/releases/latest"><img alt="Download" src="https://img.shields.io/badge/Download-.dmg-2ea44f?style=for-the-badge"></a>
   <img alt="macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-black?style=for-the-badge&logo=apple">
@@ -73,12 +79,26 @@ and nothing is ever sent anywhere: the update check is a single unauthenticated
 
 ## The Sonora Chrome extension
 
-HeadsetCompanion is the free, open-source half of **Sonora**. The other half is
-the **Sonora media cockpit** — a Chrome extension that finds every audible tab
-(YouTube, podcasts, web radio) and gives you one set of controls for all of
-them, with your headset battery on the same card.
+HeadsetCompanion is one half of **Sonora**. The other half is the **Sonora
+media cockpit** — a Chrome extension that finds every audible tab (YouTube,
+podcasts, web radio) and gives you one set of controls for all of them, with
+your headset battery on the same card.
 
-👉 **[Get Sonora on the Chrome Web Store — $5](https://chromewebstore.google.com/)** *(listing link lands here at launch)*
+👉 **[Get Sonora on the Chrome Web Store — free](https://chromewebstore.google.com/)** *(listing link lands here at launch)*
+
+It is free, and its source is in this repository under
+**[`sonora-extension/`](sonora-extension/)**. To build it yourself:
+
+```bash
+cd sonora-extension
+npm install
+npm run build       # -> dist/
+```
+
+Then load it in Chrome: `chrome://extensions` → **Developer mode** → **Load
+unpacked** → pick `sonora-extension/dist/`. The details — watch mode, the
+typecheck and smoke gates, how the popup talks to the bridge — are in
+**[sonora-extension/README.md](sonora-extension/README.md)**.
 
 The extension works on its own; the bridge is what adds the battery. Neither
 one phones home.
@@ -90,7 +110,8 @@ one phones home.
 - The battery HTTP server binds to **`127.0.0.1` only** — nothing outside your
   Mac can reach it.
 - No analytics, no crash reporting, no account, no identifiers. The whole app
-  is ~3,000 lines of Swift in this repository; read it.
+  is ~3,000 lines of Swift in this repository; read it. The extension is here
+  too, in `sonora-extension/` — it costs nothing and hides nothing either.
 
 ## FAQ
 
@@ -119,15 +140,28 @@ defaults delete io.sonora.headsetcompanion
 
 ## Build it yourself
 
+The macOS app, from the repo root:
+
 ```bash
 git clone https://github.com/YamineRL/sonora.git
 cd sonora
-swift test          # 109 tests
+swift test          # 122 tests
 ./build-app.sh      # -> HeadsetCompanion.app
 ./make-dmg.sh       # -> dist/HeadsetCompanion-<version>.dmg
 ```
 
-Requires Xcode 15+ / Swift 5.10 and macOS 13+.
+The Chrome extension, from `sonora-extension/`:
+
+```bash
+cd sonora-extension
+npm install
+npm run build       # -> dist/, loadable unpacked
+npm run typecheck   # strict TS check
+npm run smoke       # build + smoke tests
+```
+
+Requires Xcode 15+ / Swift 5.10 and macOS 13+ for the app, Node 20+ for the
+extension.
 Releases are cut with `./release.sh X.Y.Z`, which tags and lets
 [the release workflow](.github/workflows/release.yml) build and attach the DMG.
 
@@ -136,4 +170,18 @@ HTTP contract, the media-key policy: **[docs/BRIDGE.md](docs/BRIDGE.md)**.
 
 ## Licence
 
-MIT — see [LICENSE](LICENSE).
+[FSL-1.1-ALv2](LICENSE) — the Functional Source License, with Apache-2.0 as its
+future licence. It replaces the MIT licence this repository used to carry, and
+covers both halves: the app and the extension. Use it for anything you like,
+including your work at a company: read it, change it, build on it, pass it on.
+The one thing it withholds is competing use — making Sonora, or something with
+substantially the same functionality, available in a commercial product or
+service. Ask me first, by opening an issue.
+
+That restriction expires. **Every version becomes Apache-2.0 two years after
+its release**, on its own clock, so what is protected is always the current code
+and never the archive.
+
+Source-available rather than open source: a licence that withholds one field of
+use fails the OSI definition, so Sonora is not FOSS and does not claim to be.
+Contributions are welcome under [CONTRIBUTING.md](CONTRIBUTING.md).

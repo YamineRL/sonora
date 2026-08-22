@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Sonora — reveal device names</title>
+    <style>
+      body { margin: 0; padding: 48px; background: #12111b; color: #ece9f5; font: 15px/1.5 -apple-system, system-ui, sans-serif; }
+      main { max-width: 480px; }
+      h1 { font-size: 20px; margin: 0 0 12px; }
+      p { color: #b3aec6; }
+      button { margin-top: 16px; padding: 10px 18px; border: 0; border-radius: 8px; background: #c7f56b; color: #12111b; font-weight: 600; cursor: pointer; }
+      #status { margin-top: 16px; min-height: 1.5em; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Reveal audio device names</h1>
+      <p>
+        The browser only shows output device names to pages that have used the
+        microphone once. Sonora asks for it a single time, stops the microphone
+        immediately, and never records anything. Allow the prompt, then close this tab.
+      </p>
+      <button id="ask" type="button">Ask for microphone access</button>
+      <p id="status"></p>
+    </main>
+    <script src="permission.js"></script>
+  </body>
+</html>

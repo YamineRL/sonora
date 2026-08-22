@@ -1,0 +1,5 @@
+/* Sonora content styles.
+ * The cockpit lives in the popup — this stylesheet is intentionally
+ * empty so page content is never affected. It exists as a hook for
+ * future in-page overlays (e.g. a "controlled by Sonora" badge).
+ */

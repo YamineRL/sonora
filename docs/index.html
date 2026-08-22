@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sonora — Your headset's battery, in the menu bar.</title>
+<meta name="description" content="A free, open-source menu-bar app for macOS that shows any Bluetooth headset's battery, and replaces Apple's Sound menu. Plus a Chrome extension that controls every audible tab from one popup. No account, no telemetry.">
+<link rel="icon" href="logo.png">
+<meta property="og:title" content="Sonora">
+<meta property="og:description" content="Your headset's battery, in the menu bar. Any brand.">
+<meta property="og:image" content="https://yaminerl.github.io/sonora/logo.png">
+<meta property="og:type" content="website">
+<style>
+:root {
+  --bg: #fbfbfd;
+  --bg-raised: #ffffff;
+  --bg-sunken: #f2f4f0;
+  --ink: #1c1c22;
+  --ink-soft: #55555f;
+  --ink-faint: #8a8a95;
+  --line: #e3e6e0;
+  --accent: #2f7a3c;
+  --accent-ink: #ffffff;
+  --warn-bg: #fff8e6;
+  --warn-line: #f0d69a;
+  --warn-ink: #6b4e07;
+  --shadow: 0 1px 2px rgba(0,0,0,.05), 0 12px 32px rgba(20,30,20,.08);
+  --radius: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f110f;
+    --bg-raised: #171a17;
+    --bg-sunken: #1d211d;
+    --ink: #f2f4f0;
+    --ink-soft: #b4b8b2;
+    --ink-faint: #7e847d;
+    --line: #2a2f2a;
+    --accent: #8fdc7a;
+    --accent-ink: #0f110f;
+    --warn-bg: #2a2313;
+    --warn-line: #4d4225;
+    --warn-ink: #f0d69a;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 12px 32px rgba(0,0,0,.45);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f110f;
+  --bg-raised: #171a17;
+  --bg-sunken: #1d211d;
+  --ink: #f2f4f0;
+  --ink-soft: #b4b8b2;
+  --ink-faint: #7e847d;
+  --line: #2a2f2a;
+  --accent: #8fdc7a;
+  --accent-ink: #0f110f;
+  --warn-bg: #2a2313;
+  --warn-line: #4d4225;
+  --warn-ink: #f0d69a;
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 12px 32px rgba(0,0,0,.45);
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 17px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+img { max-width: 100%; height: auto; display: block; }
+a { color: var(--accent); }
+code, kbd {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .92em;
+}
+kbd {
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  padding: 1px 7px;
+  white-space: nowrap;
+}
+
+.wrap { width: 100%; max-width: 920px; margin: 0 auto; padding: 0 24px; }
+
+/* ---------- hero ---------- */
+.hero { text-align: center; padding: 76px 0 8px; }
+.hero img.logo { width: 104px; height: 104px; margin: 0 auto 22px; border-radius: 22px; }
+.hero h1 { font-size: 3rem; letter-spacing: -.025em; margin: 0 0 10px; line-height: 1.1; }
+.hero .tagline { font-size: 1.3rem; color: var(--ink-soft); margin: 0 0 34px; }
+
+.cta { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; align-items: center; }
+.btn {
+  display: inline-block;
+  background: var(--accent);
+  color: var(--accent-ink);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 1.05rem;
+  padding: 14px 30px;
+  border-radius: 11px;
+  box-shadow: var(--shadow);
+}
+.btn:hover { filter: brightness(1.08); }
+.btn.ghost {
+  background: transparent;
+  color: var(--ink-soft);
+  box-shadow: none;
+  border: 1px solid var(--line);
+  font-weight: 500;
+}
+.meta { margin-top: 18px; color: var(--ink-faint); font-size: .92rem; }
+
+/* ---------- sections ---------- */
+section { padding: 60px 0; }
+section.sunken { background: var(--bg-sunken); border-block: 1px solid var(--line); }
+h2 { font-size: 1.85rem; letter-spacing: -.02em; margin: 0 0 8px; }
+h2 + .lede { color: var(--ink-soft); margin: 0 0 32px; font-size: 1.08rem; }
+h3 { font-size: 1.15rem; margin: 0 0 6px; }
+
+.grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+.card {
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 22px;
+}
+.card p { margin: 0; color: var(--ink-soft); font-size: .97rem; }
+.card .icon { font-size: 1.5rem; line-height: 1; margin-bottom: 12px; }
+
+.shot {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  background: var(--bg-raised);
+}
+/* The screenshots are captured at their real point size, which is narrower
+   than the column: cap each one so it is never blown up past its own pixels. */
+.shot img { width: 100%; }
+.shot.menubar { max-width: 528px; margin: 0 auto; }
+.shot.menu { max-width: 360px; margin: 0 auto; }
+.shot.settings { max-width: 400px; margin: 0 auto; }
+figure { margin: 0 0 28px; }
+figcaption { color: var(--ink-faint); font-size: .9rem; text-align: center; margin-top: 10px; }
+.duo { display: grid; gap: 28px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); align-items: start; }
+.duo figure { margin: 0; }
+
+/* ---------- steps ---------- */
+ol.steps { list-style: none; counter-reset: step; margin: 0; padding: 0; }
+ol.steps > li {
+  counter-increment: step;
+  position: relative;
+  padding: 0 0 26px 52px;
+  border-left: 2px solid var(--line);
+  margin-left: 15px;
+}
+ol.steps > li:last-child { border-left-color: transparent; padding-bottom: 0; }
+ol.steps > li::before {
+  content: counter(step);
+  position: absolute;
+  left: -16px;
+  top: -2px;
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 700;
+  font-size: .95rem;
+  display: grid;
+  place-items: center;
+}
+ol.steps h3 { margin-top: 0; }
+ol.steps p { margin: 0; color: var(--ink-soft); }
+
+.note {
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-line);
+  color: var(--warn-ink);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  margin: 26px 0;
+  font-size: .97rem;
+}
+.note strong { color: inherit; }
+
+pre {
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 16px;
+  overflow-x: auto;
+  margin: 14px 0;
+  font-size: .9rem;
+  line-height: 1.6;
+}
+:where(section.sunken) pre { background: var(--bg); }
+
+table { width: 100%; border-collapse: collapse; font-size: .97rem; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+th { color: var(--ink-faint); font-weight: 600; font-size: .85rem; text-transform: uppercase; letter-spacing: .04em; }
+td:first-child { width: 168px; white-space: nowrap; }
+.scroller { overflow-x: auto; }
+
+details {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0 18px;
+  background: var(--bg-raised);
+  margin-top: 16px;
+}
+summary { cursor: pointer; font-weight: 600; padding: 16px 0; }
+details[open] summary { border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+details > :last-child { margin-bottom: 16px; }
+
+.centre { text-align: center; margin-top: 28px; }
+
+footer {
+  padding: 44px 0 60px;
+  text-align: center;
+  color: var(--ink-faint);
+  font-size: .93rem;
+  border-top: 1px solid var(--line);
+}
+footer a { margin: 0 10px; }
+
+@media (max-width: 600px) {
+  .hero { padding-top: 52px; }
+  .hero h1 { font-size: 2.3rem; }
+  .hero .tagline { font-size: 1.1rem; }
+  td:first-child { width: auto; white-space: normal; }
+}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <img class="logo" src="logo.png" alt="">
+    <h1>Sonora</h1>
+    <p class="tagline">Your headset's battery, in the menu bar. Any brand.</p>
+    <div class="cta">
+      <a class="btn" href="https://github.com/YamineRL/sonora/releases/latest/download/HeadsetCompanion.dmg">Download for Mac</a>
+      <a class="btn ghost" href="#install">Installation help</a>
+      <a class="btn ghost" href="#extension">Chrome extension</a>
+      <a class="btn ghost" href="https://github.com/YamineRL/sonora" rel="noopener">Source on GitHub</a>
+    </div>
+    <p class="meta">Free and open source · a 500 KB app · macOS 13 or newer, Apple silicon and Intel</p>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <h2>The number macOS keeps to itself</h2>
+    <p class="lede">Your Mac knows how much charge is left in your headset. To see it you open the Bluetooth menu, hover the device, and read a submenu — and the figure waiting there is often hours old. HeadsetCompanion puts a fresh one where you're already looking.</p>
+    <div class="grid">
+      <div class="card">
+        <div class="icon">🔋</div>
+        <h3>Five dots, or a number</h3>
+        <p>The battery sits under a headphones glyph in one menu-bar slot, narrower than the clock. Five green dots by default, or a small percentage if you'd rather have the digits.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🔄</div>
+        <h3>Read fresh, not remembered</h3>
+        <p>The level is re-read from a new process every ten seconds. That's what dodges the per-process cache which leaves macOS — and other menu-bar tools — reporting yesterday's number.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🎧</div>
+        <h3>Any headset, no model list</h3>
+        <p>Sony, Bose, AirPods, Jabra, Anker, the cheap pair from the airport. Nothing in the app names a device: it reads what the system Bluetooth stack reports, and falls back to the standard BLE battery service.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🔊</div>
+        <h3>It replaces the Sound menu</h3>
+        <p>One click gives you the volume slider and every output device, each headset carrying its own battery on its row. No more Control Centre, then Sound, then hover.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🖥️</div>
+        <h3>The right glyph for the right output</h3>
+        <p>A Mac for the built-in speakers, the AirPods shape for AirPods, headphones for everything else over Bluetooth. Switch output and the menu bar follows within the same second.</p>
+      </div>
+      <div class="card">
+        <div class="icon">⬆️</div>
+        <h3>It updates itself</h3>
+        <p>A once-a-day look at this repository's Releases page, then a new version installed in place. No prompts, no installer, no admin password — and an off switch in Settings if you'd rather do it yourself.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sunken">
+  <div class="wrap">
+    <h2>A look at it</h2>
+    <p class="lede">One item in the menu bar, one menu under it, and a Settings panel you'll open once.</p>
+
+    <figure>
+      <div class="shot menubar"><img src="img/menubar-styles.png" alt="The menu bar item shown in both styles: a headphones glyph with five green dots beneath it, and the same glyph with a small percentage beneath it"></div>
+      <figcaption>Two styles for the same slot: five dots, or the percentage.</figcaption>
+    </figure>
+
+    <div class="duo">
+      <figure>
+        <div class="shot menu"><img src="img/menu.png" alt="The Sound menu open: a volume slider above a list of output devices, with a battery level on each headset's row"></div>
+        <figcaption>Volume and every output device, batteries included.</figcaption>
+      </figure>
+      <figure>
+        <div class="shot settings"><img src="img/settings.png" alt="The Settings panel: menu bar battery style, start at login, daily update check, media-key routing, and the version number"></div>
+        <figcaption>Settings: the style, the update check, the media keys.</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<section id="install">
+  <div class="wrap">
+    <h2>Installing it</h2>
+    <p class="lede">A minute, and one warning from macOS that you get past with a right-click.</p>
+
+    <ol class="steps">
+      <li>
+        <h3>Download the app</h3>
+        <p>The <a href="https://github.com/YamineRL/sonora/releases/latest/download/HeadsetCompanion.dmg">Download for Mac</a> button gives you a file ending in <code>.dmg</code>, in your Downloads folder.</p>
+      </li>
+      <li>
+        <h3>Drag it into Applications</h3>
+        <p>Double-click the downloaded file. A window opens with the HeadsetCompanion icon and an Applications folder. Drag one onto the other, then close the window.</p>
+      </li>
+      <li>
+        <h3>Open it with a right-click, once</h3>
+        <p>In your Applications folder, right-click HeadsetCompanion and choose <strong>Open</strong>, then <strong>Open</strong> again in the dialog that appears. Double-clicking it the normal way will only be refused. After this first time, it opens like anything else.</p>
+      </li>
+      <li>
+        <h3>Pick your headset's sound</h3>
+        <p>Click the new menu-bar icon: volume, your output devices, and the battery for whichever headset is connected. If the number looks wrong for a second, give it ten — that's one poll.</p>
+      </li>
+      <li>
+        <h3>Optional — start it at login</h3>
+        <p>In <strong>Settings…</strong>, turn on <strong>Start at login</strong>. macOS may ask you to approve the item once under <strong>System Settings → General → Login Items</strong>.</p>
+      </li>
+    </ol>
+
+    <div class="note">
+      <strong>Why the right-click?</strong>
+      The app is not signed or notarised — an Apple Developer ID costs $99 a year and this is free — so Gatekeeper treats it as unknown rather than unsafe, and asks once. Every line of it is public in the repository if you or someone you trust would like to read it first.
+    </div>
+
+    <details>
+      <summary>Removing it</summary>
+      <p>Turn <strong>Start at login</strong> off in Settings, then drag the app to the Trash. Its preferences go with these two lines:</p>
+<pre><code>rm -rf /Applications/HeadsetCompanion.app
+defaults delete io.sonora.headsetcompanion</code></pre>
+    </details>
+
+    <details>
+      <summary>Building it yourself</summary>
+      <p>Xcode 15 or newer, Swift 5.10, macOS 13+. The test suite runs offline.</p>
+<pre><code>git clone https://github.com/YamineRL/sonora.git
+cd sonora
+swift test
+./build-app.sh</code></pre>
+    </details>
+  </div>
+</section>
+
+<section class="sunken" id="extension">
+  <div class="wrap">
+    <h2>The other half: a media cockpit for Chrome</h2>
+    <p class="lede">Sonora's Chrome extension finds every tab making noise — YouTube, a podcast, a web radio you opened on Tuesday — and puts them all in one popup. Free, open source, and it shows the battery the Mac app is reading.</p>
+    <div class="grid">
+      <div class="card">
+        <div class="icon">📻</div>
+        <h3>Every audible tab, one list</h3>
+        <p>Whatever is playing anywhere in the browser turns up in the popup, named and ready to be paused — including the one you can hear but can't find.</p>
+      </div>
+      <div class="card">
+        <div class="icon">⏯️</div>
+        <h3>Play, seek, volume</h3>
+        <p>Full transport controls per tab: play and pause, scrub the position, set the level. No hunting through windows to turn one thing down.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🔗</div>
+        <h3>The battery comes along</h3>
+        <p>No browser API exposes headset battery — Chrome on macOS can't even see classic Bluetooth headsets. The app hands the number over on loopback, so the popup can show it next to your tabs.</p>
+      </div>
+    </div>
+    <p class="centre"><a class="btn" href="https://chromewebstore.google.com/" rel="noopener">Sonora on the Chrome Web Store</a></p>
+    <p class="centre meta">Free. The store listing isn't published yet — this link will point at it when it is. The extension works on its own; the Mac app is what adds the battery.</p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>What it does with your data</h2>
+    <p class="lede">Short version: nothing. There is nowhere for it to send anything.</p>
+    <div class="grid">
+      <div class="card">
+        <h3>No account, no telemetry</h3>
+        <p>Nothing to sign up for, no analytics, no crash reporting, no identifiers. Nothing about your devices, your listening or your Mac leaves the machine.</p>
+      </div>
+      <div class="card">
+        <h3>One network call, and it's optional</h3>
+        <p>The only request the app can make is an unauthenticated read of this repository's public releases page, once a day, to see whether a newer version exists. Untick <strong>Check for updates daily</strong> and even that stops.</p>
+      </div>
+      <div class="card">
+        <h3>The battery server is local only</h3>
+        <p>The little HTTP server the extension reads from binds to <code>127.0.0.1</code>. Nothing outside your Mac can reach it — not another machine on your network, not a website.</p>
+      </div>
+      <div class="card">
+        <h3>Small enough to read</h3>
+        <p>About 3,000 lines of Swift, all of it in the open. If you'd rather not trust a stranger's binary, build the app from source and run that instead.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sunken">
+  <div class="wrap">
+    <h2>At a glance</h2>
+    <p class="lede">The details people usually ask for before downloading anything.</p>
+    <div class="scroller">
+      <table>
+        <thead><tr><th>Detail</th><th>Answer</th></tr></thead>
+        <tbody>
+          <tr><td>Price</td><td>Free, both halves, with the source in the open</td></tr>
+          <tr><td>Requires</td><td>macOS 13 or newer, Apple silicon or Intel</td></tr>
+          <tr><td>Size</td><td>About 500 KB, delivered as a <code>.dmg</code></td></tr>
+          <tr><td>Signed</td><td>No — first launch needs right-click → Open</td></tr>
+          <tr><td>Headsets</td><td>Any that reports a level to macOS, plus BLE battery service</td></tr>
+          <tr><td>Refresh</td><td>Every 10 seconds, from a fresh read</td></tr>
+          <tr><td>Updates</td><td>Daily check, installed in place; switchable off</td></tr>
+          <tr><td>Network</td><td>That update check only; battery server on <code>127.0.0.1</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>
+      <a href="https://github.com/YamineRL/sonora">Source on GitHub</a>
+      <a href="https://github.com/YamineRL/sonora/releases">All releases</a>
+      <a href="https://github.com/YamineRL/sonora/issues">Report a problem</a>
+      <a href="https://chromewebstore.google.com/">Chrome extension</a>
+    </p>
+    <p>Made for macOS 13 and newer, on Apple silicon and Intel.</p>
+    <p>Source under <a href="https://github.com/YamineRL/sonora/blob/main/LICENSE">FSL-1.1-ALv2</a> (Functional Source License 1.1, converting to Apache 2.0) · © 2026 YamineRL · "Sonora" and its icon are unregistered trademarks.</p>
+  </div>
+</footer>
+
+</body>
+</html>

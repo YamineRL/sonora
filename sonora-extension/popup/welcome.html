@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Sonora — welcome</title>
+    <style>
+      body { margin: 0; padding: 48px; background: #12111b; color: #ece9f5; font: 15px/1.5 -apple-system, system-ui, sans-serif; }
+      main { max-width: 560px; }
+      .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 28px; }
+      .brand img { width: 32px; height: 32px; border-radius: 11px; }
+      .brand span { font-family: "Space Mono", ui-monospace, "SF Mono", monospace; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+      h1 { font-size: 20px; margin: 0 0 12px; }
+      h2 { font-size: 15px; margin: 32px 0 8px; }
+      p { color: #b3aec6; }
+      a.download { display: inline-block; margin-top: 16px; padding: 10px 18px; border-radius: 8px; background: #c7f56b; color: #12111b; font-weight: 600; text-decoration: none; }
+      ol { color: #b3aec6; padding-left: 20px; margin: 8px 0 0; }
+      li { margin-bottom: 6px; }
+      #status { margin-top: 32px; padding: 12px 14px; border-radius: 8px; background: #1b1926; min-height: 1.5em; }
+      #status.connected { background: #1f2a17; color: #c7f56b; }
+      .device { display: block; color: #b3aec6; font-size: 13px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <!-- Same lime mark as the popup header and the toolbar icon, so the
+           page a fresh install lands on is recognisably the extension. -->
+      <div class="brand">
+        <img src="../icons/icon-128.png" alt="" />
+        <span>sonora</span>
+      </div>
+      <h1>Sonora is installed and already working</h1>
+      <p>
+        Pin the toolbar icon and Sonora controls every audible tab right away —
+        nothing else to set up. The free companion app for macOS is optional: it
+        adds your Bluetooth headset's battery level to the cockpit.
+      </p>
+      <a
+        class="download"
+        href="https://github.com/YamineRL/sonora/releases/latest/download/HeadsetCompanion.dmg"
+        >Download HeadsetCompanion (free)</a
+      >
+
+      <h2>Three steps</h2>
+      <ol>
+        <li>Open the DMG and drag <strong>HeadsetCompanion</strong> to Applications.</li>
+        <li>
+          Right-click the app → <strong>Open</strong> → <strong>Open</strong>. This is
+          needed once, because the app is free and not notarised by Apple.
+        </li>
+        <li>That's it — this page notices the app the moment it starts.</li>
+      </ol>
+
+      <p id="status">Waiting for HeadsetCompanion…</p>
+    </main>
+    <script src="welcome.js"></script>
+  </body>
+</html>

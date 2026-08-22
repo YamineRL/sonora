@@ -1,0 +1,26 @@
+{
+  "name": "sonora-extension",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sonora browser media cockpit — Chrome extension (MV3).",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "watch": "node build.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "smoke": "npm run build && node smoke-test.mjs"
+  },
+  "dependencies": {
+    "lucide-react": "^0.525.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.319",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "esbuild": "^0.25.4",
+    "jsdom": "^29.1.1",
+    "typescript": "^5.8.3"
+  }
+}
