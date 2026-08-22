@@ -180,7 +180,13 @@ final class StatusItemController {
         )
         guard let button = item.button else { return }
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-        popover.contentViewController?.view.window?.makeKey()
+        let window = popover.contentViewController?.view.window
+        window?.makeKey()
+        // Opening the menu must not focus anything: AppKit would otherwise
+        // hand first responder to the first control (the mute button), which
+        // then wears a focus ring and swallows the space bar.
+        window?.initialFirstResponder = nil
+        window?.makeFirstResponder(nil)
     }
 
     /// Who MediaRemote currently routes the media keys to: Sonora while the
@@ -372,6 +378,7 @@ struct SoundMenuView: View {
                 .frame(width: 14)
             }
             .buttonStyle(.borderless)
+            .focusable(false)
             .help(audio.muted ? "Unmute" : "Mute")
 
             Slider(
