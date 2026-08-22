@@ -112,7 +112,11 @@ kbd {
   border: 1px solid var(--line);
   font-weight: 500;
 }
-.meta { margin-top: 18px; color: var(--ink-faint); font-size: .92rem; }
+.cta .btn { flex: 0 1 auto; min-width: 232px; text-align: center; }
+.cta-sub { margin: 16px 0 0; font-size: .95rem; color: var(--ink-faint); }
+.cta-sub a { color: var(--ink-soft); }
+.cta-sub span { margin: 0 10px; color: var(--line); }
+.meta { margin-top: 14px; color: var(--ink-faint); font-size: .92rem; }
 
 /* ---------- sections ---------- */
 section { padding: 60px 0; }
@@ -241,31 +245,54 @@ footer a { margin: 0 10px; }
   <div class="wrap">
     <img class="logo" src="logo.png" alt="">
     <h1>Sonora</h1>
-    <p class="tagline">Your headset's battery, in the menu bar. Any brand.</p>
+    <p class="tagline">Every noisy tab in one popup — and your headset's battery in the menu bar.</p>
     <div class="cta">
       <a class="btn" href="https://github.com/YamineRL/sonora/releases/latest/download/HeadsetCompanion.dmg">Download for Mac</a>
-      <a class="btn ghost" href="#install">Installation help</a>
-      <a class="btn ghost" href="#extension">Chrome extension</a>
-      <a class="btn ghost" href="https://github.com/YamineRL/sonora" rel="noopener">Source on GitHub</a>
+      <a class="btn" href="https://chromewebstore.google.com/" rel="noopener">Get the Chrome extension</a>
     </div>
+    <p class="cta-sub">
+      <a href="#install">Installation help</a>
+      <span aria-hidden="true">·</span>
+      <a href="https://github.com/YamineRL/sonora" rel="noopener">Source on GitHub</a>
+    </p>
     <p class="meta">Free and open source · a 500 KB app · macOS 13 or newer, Apple silicon and Intel</p>
   </div>
 </header>
 
-<section>
+<section id="extension">
   <div class="wrap">
-    <h2>The number macOS keeps to itself</h2>
+    <h2>A media cockpit for Chrome</h2>
+    <p class="lede">Sonora's Chrome extension finds every tab making noise — YouTube, a podcast, a web radio you opened on Tuesday — and puts them all in one popup. Free, open source, and it shows the battery the Mac app is reading.</p>
+    <div class="grid">
+      <div class="card">
+        <div class="icon">📻</div>
+        <h3>Every audible tab, one list</h3>
+        <p>Whatever is playing anywhere in the browser turns up in the popup, named and ready to be paused — including the one you can hear but can't find.</p>
+      </div>
+      <div class="card">
+        <div class="icon">⏯️</div>
+        <h3>Play, seek, volume</h3>
+        <p>Full transport controls per tab: play and pause, scrub the position, set the level. No hunting through windows to turn one thing down.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🔗</div>
+        <h3>The battery comes along</h3>
+        <p>No browser API exposes headset battery — Chrome on macOS can't even see classic Bluetooth headsets. The app hands the number over on loopback, so the popup can show it next to your tabs.</p>
+      </div>
+    </div>
+    <p class="centre meta">The extension works on its own; the Mac app is what adds the battery. The store listing isn't published yet — the button above will point at it when it is.</p>
+  </div>
+</section>
+
+<section class="sunken">
+  <div class="wrap">
+    <h2>The other half: the number macOS keeps to itself</h2>
     <p class="lede">Your Mac knows how much charge is left in your headset. To see it you open the Bluetooth menu, hover the device, and read a submenu — and the figure waiting there is often hours old. HeadsetCompanion puts a fresh one where you're already looking.</p>
     <div class="grid">
       <div class="card">
         <div class="icon">🔋</div>
         <h3>Five dots, or a number</h3>
         <p>The battery sits under a headphones glyph in one menu-bar slot, narrower than the clock. Five green dots by default, or a small percentage if you'd rather have the digits.</p>
-      </div>
-      <div class="card">
-        <div class="icon">🔄</div>
-        <h3>Read fresh, not remembered</h3>
-        <p>The level is re-read from a new process every ten seconds. That's what dodges the per-process cache which leaves macOS — and other menu-bar tools — reporting yesterday's number.</p>
       </div>
       <div class="card">
         <div class="icon">🎧</div>
@@ -291,7 +318,7 @@ footer a { margin: 0 10px; }
   </div>
 </section>
 
-<section class="sunken">
+<section>
   <div class="wrap">
     <h2>A look at it</h2>
     <p class="lede">One item in the menu bar, one menu under it, and a Settings panel you'll open once.</p>
@@ -314,7 +341,7 @@ footer a { margin: 0 10px; }
   </div>
 </section>
 
-<section id="install">
+<section class="sunken" id="install">
   <div class="wrap">
     <h2>Installing it</h2>
     <p class="lede">A minute, and one warning from macOS that you get past with a right-click.</p>
@@ -365,31 +392,6 @@ swift test
   </div>
 </section>
 
-<section class="sunken" id="extension">
-  <div class="wrap">
-    <h2>The other half: a media cockpit for Chrome</h2>
-    <p class="lede">Sonora's Chrome extension finds every tab making noise — YouTube, a podcast, a web radio you opened on Tuesday — and puts them all in one popup. Free, open source, and it shows the battery the Mac app is reading.</p>
-    <div class="grid">
-      <div class="card">
-        <div class="icon">📻</div>
-        <h3>Every audible tab, one list</h3>
-        <p>Whatever is playing anywhere in the browser turns up in the popup, named and ready to be paused — including the one you can hear but can't find.</p>
-      </div>
-      <div class="card">
-        <div class="icon">⏯️</div>
-        <h3>Play, seek, volume</h3>
-        <p>Full transport controls per tab: play and pause, scrub the position, set the level. No hunting through windows to turn one thing down.</p>
-      </div>
-      <div class="card">
-        <div class="icon">🔗</div>
-        <h3>The battery comes along</h3>
-        <p>No browser API exposes headset battery — Chrome on macOS can't even see classic Bluetooth headsets. The app hands the number over on loopback, so the popup can show it next to your tabs.</p>
-      </div>
-    </div>
-    <p class="centre"><a class="btn" href="https://chromewebstore.google.com/" rel="noopener">Sonora on the Chrome Web Store</a></p>
-    <p class="centre meta">Free. The store listing isn't published yet — this link will point at it when it is. The extension works on its own; the Mac app is what adds the battery.</p>
-  </div>
-</section>
 
 <section>
   <div class="wrap">

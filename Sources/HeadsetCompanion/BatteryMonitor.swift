@@ -65,8 +65,11 @@ public final class BatteryMonitor: NSObject, ObservableObject, CBCentralManagerD
     private var fallbackCandidate: CBPeripheral?
     private var fallbackWorkItem: DispatchWorkItem?
     private var pollTimer: Timer?
-    /// How often to re-read via system_profiler (the classic-BT path).
-    private static let systemPollInterval: TimeInterval = 10.0
+    /// How often to re-read the system sources (the classic-BT path). A
+    /// headset's charge moves by single percent over tens of minutes, and
+    /// every poll spawns a helper process, so ten minutes is the interval
+    /// that keeps the reading honest without the app working for nothing.
+    private static let systemPollInterval: TimeInterval = 600.0
     private var systemTimer: Timer?
     /// Which source currently feeds the published state.
     private enum Source { case none, gatt, system }
@@ -106,7 +109,7 @@ public final class BatteryMonitor: NSObject, ObservableObject, CBCentralManagerD
 
     /// Re-runs the device selection now — called when the default audio
     /// output changes, so switching headsets switches what `/battery` reports
-    /// without waiting for the next 10 s poll.
+    /// without waiting for the next scheduled poll.
     public func refreshTarget() {
         systemPoll()
     }

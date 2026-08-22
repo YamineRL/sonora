@@ -49,7 +49,7 @@ monitor runs two sources and publishes the better one:
 
 | source | how | when it works |
 |--------|-----|---------------|
-| **system** (primary for in-use headsets) | every 10 s, merges **two** system readers: `IOBluetoothDevice.pairedDevices()` (the level macOS shows in its Bluetooth menu) and `/usr/sbin/system_profiler SPBluetoothDataType -xml` (`device_batteryLevelMain`) | whenever the headset is linked to the Mac — classic audio link included |
+| **system** (primary for in-use headsets) | every 10 minutes, merges **two** system readers: `IOBluetoothDevice.pairedDevices()` (the level macOS shows in its Bluetooth menu) and `/usr/sbin/system_profiler SPBluetoothDataType -xml` (`device_batteryLevelMain`) | whenever the headset is linked to the Mac — classic audio link included |
 | **gatt** | CoreBluetooth, standard **Battery Service** `0x180F`, characteristic `0x2A19` (scan + `retrieveConnectedPeripherals`, read/notify, 30 s re-read) | when the headset is powered on, in range, and not already linked to another device |
 
 **Why the "system" source has two readers.** A headset tells macOS its battery

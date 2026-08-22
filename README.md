@@ -40,7 +40,7 @@ headset battery at all**.
 | | |
 |---|---|
 | **Battery at a glance** | Five green dots (the default), or a tiny percentage, right under a headphones glyph. One menu-bar slot — narrower than the clock. |
-| **Actually current** | Re-reads the level from a fresh process every 10 s, which is the only way to dodge the per-process cache that makes other tools (and macOS itself) report yesterday's number. |
+| **Actually current** | Re-reads the level from a fresh process, which is the only way to dodge the per-process cache that makes other tools (and macOS itself) report yesterday's number. |
 | **Any headset** | Sony, Bose, AirPods, Jabra, Anker, the €19 pair from the airport. Nothing in the app names a model: it reads whatever the system Bluetooth stack reports, with a BLE Battery Service fallback. |
 | **Replaces the Sound menu** | Volume slider, every output device, and each headset's battery on its own row. One click instead of Control Centre → Sound → hover. |
 | **Follows what you're listening on** | Switch output to another headset and the menu bar switches with it, within the same second. |
@@ -125,7 +125,7 @@ Usually because the Bluetooth menu's is older. The app re-reads from a fresh
 process specifically to avoid that cache.
 
 **Does it drain my battery?**
-It polls every 10 s and is idle otherwise; CPU sits at ~0 %.
+It polls every 10 minutes and is idle otherwise; CPU sits at ~0 %.
 
 **Why is it unsigned?**
 An Apple Developer ID costs $99/year and this app is free. The trade is one
