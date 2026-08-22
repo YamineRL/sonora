@@ -153,6 +153,11 @@ final class StatusItemController {
         window.styleMask = [.titled, .closable, .fullSizeContentView]
         window.titlebarAppearsTransparent = true
         window.isReleasedWhenClosed = false
+        // Size the window to the SwiftUI content *before* centring: NSWindow
+        // otherwise centres its placeholder frame and the panel lands off to
+        // the side once the content lays out.
+        host.view.layoutSubtreeIfNeeded()
+        window.setContentSize(host.view.fittingSize)
         window.center()
         settingsWindow = window
         NSApp.activate(ignoringOtherApps: true)
