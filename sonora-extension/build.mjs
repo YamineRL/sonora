@@ -11,7 +11,7 @@
  *   npm run watch     rebuild on change
  */
 import { build, context } from "esbuild";
-import { cpSync, mkdirSync, rmSync } from "node:fs";
+import { cpSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -32,7 +32,17 @@ function copyStatic() {
   mkdirSync(dist, { recursive: true });
   cpSync(path.join(root, "manifest.json"), path.join(dist, "manifest.json"));
   // Toolbar / store / welcome-page icons: the popup's lime brand mark as PNGs.
-  cpSync(path.join(root, "icons"), path.join(dist, "icons"), { recursive: true });
+  // Ship exactly what the manifest declares, not the whole directory — copying
+  // it wholesale silently shipped an unreferenced 256px master in 0.1.0.
+  const manifest = JSON.parse(readFileSync(path.join(root, "manifest.json"), "utf8"));
+  const icons = new Set([
+    ...Object.values(manifest.icons ?? {}),
+    ...Object.values(manifest.action?.default_icon ?? {}),
+  ]);
+  mkdirSync(path.join(dist, "icons"), { recursive: true });
+  for (const rel of icons) {
+    cpSync(path.join(root, rel), path.join(dist, rel));
+  }
   mkdirSync(path.join(dist, "content"), { recursive: true });
   cpSync(path.join(root, "content", "content.css"), path.join(dist, "content", "content.css"));
   mkdirSync(path.join(dist, "popup"), { recursive: true });

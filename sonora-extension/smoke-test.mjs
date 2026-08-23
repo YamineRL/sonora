@@ -1,7 +1,7 @@
 // Renders the built popup bundle in jsdom and asserts the cockpit mounts.
 import { JSDOM } from "jsdom";
 import * as esbuild from "esbuild";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -80,6 +80,9 @@ const checks = {
   "reveal-device-names button in bundle": bundle.includes("Reveal device names"),
   "icons ship in the bundle": [16, 32, 48, 128].every((n) =>
     existsSync(path.join(root, `dist/icons/icon-${n}.png`))),
+  // ...and nothing else: an undeclared icon is dead weight in the upload.
+  "no undeclared icons ship": readdirSync(path.join(root, "dist/icons")).every((f) =>
+    [16, 32, 48, 128].some((n) => f === `icon-${n}.png`)),
   "manifest declares the toolbar icon":
     Boolean(JSON.parse(readFileSync(path.join(root, "dist/manifest.json"), "utf8")).icons?.["128"]) &&
     Boolean(JSON.parse(readFileSync(path.join(root, "dist/manifest.json"), "utf8")).action?.default_icon?.["128"]),
