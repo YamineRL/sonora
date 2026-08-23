@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Sonora — store shot</title>
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; }
+      body {
+        width: 1280px; height: 800px; overflow: hidden;
+        background: radial-gradient(120% 120% at 12% 0%, #241f3d 0%, #16142099 45%, #0f0e16 100%), #0f0e16;
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, sans-serif;
+        display: grid; grid-template-columns: 1fr 460px; align-items: center;
+      }
+      .copy { padding: 0 0 0 88px; max-width: 640px; }
+      .mark {
+        display: inline-flex; align-items: center; gap: 10px;
+        font-size: 15px; letter-spacing: .14em; text-transform: uppercase;
+        color: #a99fd6; margin-bottom: 30px; font-weight: 600;
+      }
+      .mark img { width: 26px; height: 26px; border-radius: 7px; }
+      h1 {
+        margin: 0 0 20px; font-size: 52px; line-height: 1.08; letter-spacing: -.022em;
+        color: #f4f2ff; font-weight: 680;
+      }
+      p { margin: 0; font-size: 21px; line-height: 1.5; color: #a49cc4; letter-spacing: -.005em; }
+      .stagepop { display: flex; justify-content: center; align-items: center; height: 100%; }
+      .shadow {
+        border-radius: 18px; overflow: hidden;
+        box-shadow: 0 40px 90px -20px rgba(0,0,0,.8), 0 0 0 1px rgba(255,255,255,.07);
+      }
+      /* 812px is the cockpit's natural full height at its 380px width;
+         scaled to sit inside the 800px frame with margin. */
+      .scaler { transform: scale(.9); transform-origin: center center; }
+      iframe { width: 380px; height: 812px; border: 0; display: block; background: #12111b; }
+      /* The menu-bar strip: menubar-styles.png is 1056x184 and holds two
+         variants side by side. Crop to the right-hand one (the percentage
+         style) so it matches the 90% in the dropdown below it. */
+      .bridge { display: flex; flex-direction: column; align-items: center; width: 360px; }
+      .strip {
+        width: 374px; height: 125px; overflow: hidden;
+        border-radius: 8px 8px 0 0;
+        box-shadow: 0 8px 24px -10px rgba(0,0,0,.7);
+      }
+      /* 1:1, no resampling: shows orig x 547..921 of the percentage variant —
+         Bluetooth, the headphones glyph and the battery — stopping before the
+         next app icon so nothing is clipped mid-glyph. */
+      .strip img { display: block; width: 1056px; margin: -30px 0 0 -547px; }
+      .drop {
+        width: 360px; height: auto; display: block;
+        filter: drop-shadow(0 30px 64px rgba(0,0,0,.75));
+      }
+      .glow {
+        position: absolute; right: -160px; top: 50%; transform: translateY(-50%);
+        width: 620px; height: 620px; border-radius: 50%; pointer-events: none;
+        background: radial-gradient(circle, rgba(157,132,255,.22) 0%, transparent 68%);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="glow"></div>
+    <div class="copy">
+      <div class="mark"><img id="logo" src="../../dist/icons/icon-128.png" alt="" /> Sonora</div>
+      <h1 id="head"></h1>
+      <p id="sub"></p>
+    </div>
+    <div class="stagepop">
+      <div class="scaler"><div class="shadow"><iframe id="pop" scrolling="no"></iframe></div></div>
+      <div class="bridge" id="bridge" hidden>
+        <div class="strip"><img src="assets/menubar-styles.png" alt="" /></div>
+        <img class="drop" src="assets/menu.png" alt="" />
+      </div>
+    </div>
+    <script>
+      const SHOTS = {
+        list: {
+          head: "Every tab making noise, in one list.",
+          sub: "YouTube, a podcast, a radio stream you opened on Tuesday — Sonora finds them all, including the one you can hear but can't find.",
+          scenario: "list",
+        },
+        transport: {
+          head: "Play, seek, and set the level.",
+          sub: "Full transport controls for whichever source you're controlling — without leaving the page you're reading.",
+          scenario: "list", active: 12,
+        },
+        palette: {
+          head: "⌘K for everything.",
+          sub: "Jump to a source, pause it, or switch what you're controlling — entirely from the keyboard.",
+          scenario: "palette",
+        },
+        bridge: {
+          head: "The other half lives in your menu bar.",
+          sub: "HeadsetCompanion is a free macOS app that reads the headset battery your Mac keeps to itself, and hands it to the popup over loopback. Optional \u2014 Sonora works without it.",
+          bridge: true,
+        },
+        settings: {
+          head: "Tuned to your setup.",
+          sub: "Route a tab's audio to any output device, keep source tabs from being discarded, and set your own defaults.",
+          scenario: "settings",
+        },
+      };
+      const key = new URLSearchParams(location.search).get("shot") || "list";
+      const s = SHOTS[key];
+      document.getElementById("head").textContent = s.head;
+      document.getElementById("sub").textContent = s.sub;
+      if (s.bridge) {
+        document.querySelector(".scaler").hidden = true;
+        document.getElementById("bridge").hidden = false;
+        document.body.setAttribute("data-stage-ready", "1");
+      }
+      const pop = document.getElementById("pop");
+      if (!s.bridge) {
+        pop.src = "fixture.html?scenario=" + s.scenario + (s.active ? "&active=" + s.active : "");
+      }
+
+      // Each scenario renders a different cockpit height (the palette adds an
+      // overlay, settings expands a panel). Measure the real surface and fit
+      // it to the frame, so no shot has dead space or a clipped card.
+      const MAX_H = 720;
+      pop.addEventListener("load", () => {
+        setTimeout(() => {
+          try {
+            const doc = pop.contentDocument;
+            const cockpit = doc.querySelector(".sonora-cockpit") || doc.body;
+            const h = Math.ceil(cockpit.getBoundingClientRect().height);
+            pop.style.height = h + "px";
+            const fit = Math.min(1, MAX_H / h);
+            const scale = s.zoom ? fit * s.zoom : fit;
+            const scaler = document.querySelector(".scaler");
+            scaler.style.transform = "scale(" + scale + ")";
+            if (s.align === "top") {
+              // A detail shot: pin the top of the cockpit in frame so the
+              // battery line and now-playing card fill it.
+              scaler.style.transformOrigin = "center top";
+              document.querySelector(".stagepop").style.alignItems = "flex-start";
+              document.querySelector(".stagepop").style.paddingTop = "40px";
+            }
+          } catch (e) {
+            /* cross-origin (file://) — keep the static fallback height */
+          }
+          document.body.setAttribute("data-stage-ready", "1");
+        }, 900);
+      });
+    </script>
+  </body>
+</html>

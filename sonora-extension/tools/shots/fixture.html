@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Sonora — shot fixture</title>
+    <link rel="stylesheet" href="../../dist/popup/main.css" />
+    <style>
+      html, body { margin: 0; padding: 0; background: #12111b; }
+      /* Shots show the whole cockpit. The real popup caps itself at 600px
+         and scrolls internally (body + .sonora-cockpit); for a screenshot we
+         let it grow to its full height so no card is cut mid-way. */
+      body, .sonora-cockpit {
+        max-height: none !important;
+        height: auto !important;
+        overflow: visible !important;
+      }
+    </style>
+    <script>
+      // Stubs the handful of extension APIs the popup touches, so the REAL
+      // popup bundle renders with fixture data for store screenshots.
+      const params = new URLSearchParams(location.search);
+      const scenario = params.get("scenario") || "list";
+
+      const COLORS = ["#ff927d", "#9d84ff", "#71d9d0", "#d5f36b", "#f0b36a"];
+      const SITE_NAMES = { youtube: "YouTube", nts: "NTS", overcast: "Overcast" };
+      function siteDisplay(host) {
+        const h = host.toLowerCase().replace(/^www\./, "");
+        const brand = h.split(".")[0] || h;
+        return SITE_NAMES[brand] || brand.charAt(0).toUpperCase() + brand.slice(1);
+      }
+      function monogram(host) {
+        const d = siteDisplay(host).replace(/[^A-Za-z0-9]/g, "");
+        return d.length < 2 ? (d + "?").slice(0, 2).toUpperCase() : d.slice(0, 2).toUpperCase();
+      }
+      function sourceColor(host) {
+        let hash = 0;
+        for (let i = 0; i < host.length; i++) hash = (hash * 31 + host.charCodeAt(i)) >>> 0;
+        return COLORS[hash % COLORS.length];
+      }
+      function src(tabId, o) {
+        return Object.assign({
+          url: "https://" + o.host + "/", siteName: siteDisplay(o.host), favicon: null,
+          artist: null, artwork: null, hasMedia: true, muted: false, live: false,
+          audible: true, sinkId: null, tabMuted: false, volume: 0.68,
+          duration: 0, position: 0, description: "",
+        }, o, {
+          tabId, monogram: monogram(o.host), color: sourceColor(o.host),
+        });
+      }
+
+      const SOURCES = [
+        src(11, {
+          host: "youtube.com", kind: "youtube",
+          title: "Nils Frahm — Live at Funkhaus Berlin",
+          description: "Full concert · 4K",
+          artist: "Nils Frahm", playing: true,
+          duration: 5400, position: 1875,
+        }),
+        src(12, {
+          host: "overcast.fm", kind: "podcast",
+          title: "The Cost of a Millisecond",
+          description: "Episode 214",
+          artist: "Signals & Noise", playing: false,
+          duration: 3120, position: 640,
+        }),
+        src(13, {
+          host: "nts.live", kind: "radio",
+          title: "NTS Radio 2 — Late Night Session",
+          description: "Live stream",
+          playing: false, live: true, duration: 0, position: 0, tabMuted: true,
+        }),
+      ];
+
+      const SETTINGS = { resumeLastSource: true, keepTabsAwake: true, volume: 68, muted: false };
+      const activeParam = parseInt(params.get("active") || "11", 10);
+      // The active source drives the "now controlling" card, so varying it
+      // gives each shot a genuinely different hero rather than one view with
+      // five captions.
+      if (activeParam === 12) {
+        SOURCES[0].playing = false;
+        SOURCES[1].playing = true;
+      }
+      const STATE = { sources: SOURCES, activeTabId: activeParam, settings: SETTINGS };
+
+      window.chrome = {
+        runtime: {
+          lastError: undefined,
+          getURL: (p) => p,
+          sendMessage: (msg, cb) => {
+            let data = null;
+            if (msg && msg.type === "sonora.getState") data = STATE;
+            if (typeof cb === "function") setTimeout(() => cb({ app: "sonora", ok: true, data }), 0);
+          },
+        },
+        storage: {
+          local: { get: async () => ({}), set: async () => undefined },
+          session: { get: async () => ({}), set: async () => undefined },
+        },
+        tabs: { create: () => undefined, autoDiscardable: true },
+      };
+
+      // The bridge: a healthy HeadsetCompanion on loopback.
+      const REAL_FETCH = window.fetch;
+      window.fetch = async (url, init) => {
+        if (String(url).includes("8745")) {
+          return new Response(JSON.stringify({
+            app: "headset-companion", version: "1.0.0", port: 8745,
+            connected: true, deviceName: "WH-1000XM4", battery: 60,
+            lastUpdate: new Date().toISOString(), uptime: 8400, mediaKeys: true,
+          }), { status: 200, headers: { "Content-Type": "application/json" } });
+        }
+        return REAL_FETCH ? REAL_FETCH(url, init) : Promise.reject(new Error("offline"));
+      };
+
+      // Audio output devices for the routing control.
+      Object.defineProperty(navigator, "mediaDevices", {
+        configurable: true,
+        value: {
+          enumerateDevices: async () => ([
+            { kind: "audiooutput", deviceId: "default", label: "WH-1000XM4 (Bluetooth)", groupId: "g1" },
+            { kind: "audiooutput", deviceId: "spk1", label: "MacBook Pro Speakers", groupId: "g2" },
+            { kind: "audiooutput", deviceId: "dac1", label: "Schiit Modi 3+", groupId: "g3" },
+          ]),
+          getUserMedia: async () => { throw new Error("not needed"); },
+        },
+      });
+
+      // Drive the UI into the state each scenario needs, once mounted.
+      window.addEventListener("load", () => {
+        setTimeout(() => {
+          if (scenario === "palette") {
+            document.querySelector(".sp-key-button")?.click();
+          } else if (scenario === "settings") {
+            document.querySelector('[aria-label="Open settings"]')?.click();
+          }
+          document.body.setAttribute("data-shot-ready", "1");
+        }, 400);
+      });
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script src="../../dist/popup/main.js"></script>
+  </body>
+</html>
