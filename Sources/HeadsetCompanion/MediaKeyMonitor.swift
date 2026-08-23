@@ -56,7 +56,15 @@ public protocol MediaKeyEventSource: AnyObject {
 /// MediaPlayer — which needs a real app bundle and a main run loop.
 public protocol NowPlayingClaiming: AnyObject {
     /// Assert (or re-assert) the now-playing role.
-    func claim()
+    ///
+    /// `force` picks how hard we fight for it. A forced claim toggles the
+    /// playback state (`paused` → `playing`), which is what wins the role
+    /// back from a browser tab that just started playing — but every toggle
+    /// is a *system-wide* MediaRemote broadcast that wakes ControlCenter,
+    /// `audiomxd`, `audioaccessoryd` and `bluetoothd`, and re-arbitrates the
+    /// shared audio route. An unforced claim is a single state update, cheap
+    /// enough to run as an idle heartbeat.
+    func claim(force: Bool)
     /// Drop the now-playing role, handing the keys back to whoever claims
     /// next (usually the browser).
     func release()
@@ -97,9 +105,17 @@ public final class MediaKeyMonitor: ObservableObject, MediaKeyEventSource {
 
     /// How long a `/events` request keeps the `.auto` policy claiming.
     public static let consumerWindow: TimeInterval = 30
-    /// How often the claim is re-asserted while claiming. Short, because any
-    /// app that starts playing (a browser tab, Music) takes the role away.
+    /// How often the claim is re-asserted right after you actually use the
+    /// keys. Short, because any app that starts playing (a browser tab,
+    /// Music) takes the role away.
     public static let reassertInterval: TimeInterval = 2
+    /// How long the fast cadence lasts after a real media-key press.
+    public static let fastWindow: TimeInterval = 10
+    /// Re-assert cadence once idle. Deliberately slow: at 2 s the claim
+    /// generated ~5,700 unified-log events a minute and re-arbitrated the
+    /// shared audio route against the connected headset 30 times a minute,
+    /// which stalls anything touching CoreAudio (browsers above all).
+    public static let idleReassertInterval: TimeInterval = 45
 
     private let claimer: NowPlayingClaiming
     private var reassertTimer: Timer?
@@ -110,6 +126,10 @@ public final class MediaKeyMonitor: ObservableObject, MediaKeyEventSource {
     private var sequence = 0
     private var claiming = false
     private var lastConsumerSeen: Date?
+    /// When a media key was last actually pressed — opens the fast window.
+    private var lastInteractionAt: Date?
+    /// When the claim was last asserted, forced or not.
+    private var lastClaimAt: Date?
     /// Rolling window kept in memory (the extension only ever asks for the
     /// tail, `seq > since`); 256 covers any realistic burst.
     private static let maxEvents = 256
@@ -222,8 +242,9 @@ public final class MediaKeyMonitor: ObservableObject, MediaKeyEventSource {
     ///
     /// Called from the MediaRemote command handlers; also the seam the tests
     /// record through.
-    public func record(type: String) {
+    public func record(type: String, at now: Date = Date()) {
         condition.lock()
+        lastInteractionAt = now
         sequence += 1
         let event = MediaKeyEvent(seq: sequence, type: type, at: Self.iso.string(from: Date()))
         events.append(event)
@@ -266,11 +287,16 @@ public final class MediaKeyMonitor: ObservableObject, MediaKeyEventSource {
         let wanted = shouldClaim(now: now)
         let held = mediaKeysActive
         if wanted {
-            claimer.claim()
             if !held {
+                // First claim: fight for the role and start the fast window.
+                claimer.claim(force: true)
+                noteClaimed(at: now)
                 setClaiming(true)
                 BridgeLog.log("[media-keys] claimed now-playing — Sonora owns the media keys "
                     + "(policy=\(policy.rawValue))")
+            } else if let force = reassertDue(now: now) {
+                claimer.claim(force: force)
+                noteClaimed(at: now)
             }
         } else if held {
             claimer.release()
@@ -278,6 +304,30 @@ public final class MediaKeyMonitor: ObservableObject, MediaKeyEventSource {
             BridgeLog.log("[media-keys] released now-playing — keys go back to the system "
                 + "(policy=\(policy.rawValue))")
         }
+    }
+
+    /// Whether the claim is due for a re-assert, and how hard.
+    ///
+    /// Returns `nil` when nothing is due, `true` when the fast (forced)
+    /// cadence applies — within `fastWindow` of a real key press — and
+    /// `false` for the idle heartbeat.
+    func reassertDue(now: Date = Date()) -> Bool? {
+        condition.lock()
+        let interaction = lastInteractionAt
+        let claimed = lastClaimAt
+        condition.unlock()
+
+        let fast = interaction.map { now.timeIntervalSince($0) <= Self.fastWindow } ?? false
+        let interval = fast ? Self.reassertInterval : Self.idleReassertInterval
+        guard let claimed else { return fast }
+        guard now.timeIntervalSince(claimed) >= interval else { return nil }
+        return fast
+    }
+
+    private func noteClaimed(at now: Date) {
+        condition.lock()
+        lastClaimAt = now
+        condition.unlock()
     }
 
     // MARK: - MediaRemote
@@ -347,7 +397,7 @@ final class NowPlayingInfoClaimer: NowPlayingClaiming {
 
     private let claimedAt = Date()
 
-    func claim() {
+    func claim(force: Bool) {
         let center = MPNowPlayingInfoCenter.default()
         // MediaRemote routes commands to the app that most recently *changed*
         // its now-playing state; re-publishing identical info is a no-op and
@@ -361,7 +411,14 @@ final class NowPlayingInfoClaimer: NowPlayingClaiming {
             MPNowPlayingInfoPropertyPlaybackRate: 1.0,
             MPNowPlayingInfoPropertyMediaType: MPNowPlayingInfoMediaType.audio.rawValue,
         ]
-        center.playbackState = .paused
+        // The paused→playing toggle is the part that reliably steals the role
+        // back, and also the part that costs two system-wide broadcasts. Pay
+        // it only in the fast window; the idle heartbeat settles for the
+        // single `playing` update above, which still reclaims when the role
+        // has drifted elsewhere.
+        if force {
+            center.playbackState = .paused
+        }
         center.playbackState = .playing
     }
 

@@ -41,6 +41,15 @@ public final class BatteryMonitor: NSObject, ObservableObject, CBCentralManagerD
     private static let rescanDelay: TimeInterval = 3.0
     /// How often to re-read the battery characteristic while connected.
     private static let pollInterval: TimeInterval = 30.0
+    /// How long a single discovery scan runs before giving up.
+    ///
+    /// An unbounded LE scan is the default trap here: a headset linked over
+    /// *classic* Bluetooth (A2DP/HFP) never advertises 180F, so the scan
+    /// simply never ends and keeps the 2.4 GHz radio busy alongside the audio
+    /// link. Scan in short windows and retry instead.
+    private static let scanWindow: TimeInterval = 12.0
+    /// How long to wait before scanning again after a fruitless window.
+    private static let scanRetryInterval: TimeInterval = 300.0
 
     // MARK: - Internal state
 
@@ -64,6 +73,10 @@ public final class BatteryMonitor: NSObject, ObservableObject, CBCentralManagerD
     }
     private var fallbackCandidate: CBPeripheral?
     private var fallbackWorkItem: DispatchWorkItem?
+    /// Stops the current scan window; nil when no scan is running.
+    private var scanStopWorkItem: DispatchWorkItem?
+    /// Starts the next scan window after a fruitless one.
+    private var scanRetryWorkItem: DispatchWorkItem?
     private var pollTimer: Timer?
     /// How often to re-read the system sources (the classic-BT path). A
     /// headset's charge moves by single percent over tens of minutes, and
@@ -130,16 +143,39 @@ public final class BatteryMonitor: NSObject, ObservableObject, CBCentralManagerD
     // MARK: - Scanning & connecting
 
     private func startScan() {
-        guard let central, central.state == .poweredOn else { return }
+        guard let central, central.state == .poweredOn, target == nil else { return }
+        cancelScanSchedule()
         central.scanForPeripherals(
             withServices: [Self.batteryServiceUUID],
             options: [CBCentralManagerScanOptionAllowDuplicatesKey: false]
         )
+        let stop = DispatchWorkItem { [weak self] in
+            guard let self, self.target == nil else { return }
+            self.central?.stopScan()
+            self.scanStopWorkItem = nil
+            let retry = DispatchWorkItem { [weak self] in self?.startScan() }
+            self.scanRetryWorkItem = retry
+            DispatchQueue.main.asyncAfter(
+                deadline: .now() + Self.scanRetryInterval, execute: retry
+            )
+        }
+        scanStopWorkItem = stop
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.scanWindow, execute: stop)
+    }
+
+    /// Drops any pending scan-window stop / retry (a scan is ending early,
+    /// or a new window is starting).
+    private func cancelScanSchedule() {
+        scanStopWorkItem?.cancel()
+        scanStopWorkItem = nil
+        scanRetryWorkItem?.cancel()
+        scanRetryWorkItem = nil
     }
 
     private func connect(to peripheral: CBPeripheral, advertisedName: String?) {
         guard target == nil else { return }
         cancelFallback()
+        cancelScanSchedule()
         central?.stopScan()
         target = peripheral
         lastPeripheral = peripheral

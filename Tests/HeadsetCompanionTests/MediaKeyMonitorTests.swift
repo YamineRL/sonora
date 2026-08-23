@@ -13,9 +13,12 @@ final class MediaKeyMonitorTests: XCTestCase {
         private(set) var releases = 0
         /// Claims and releases in order, as `"claim"` / `"release"`.
         private(set) var calls: [String] = []
+        /// The `force` flag of every claim, in order.
+        private(set) var forced: [Bool] = []
 
-        func claim() {
+        func claim(force: Bool) {
             claims += 1
+            forced.append(force)
             calls.append("claim")
         }
 
@@ -168,10 +171,13 @@ final class MediaKeyMonitorTests: XCTestCase {
         XCTAssertTrue(monitor.isActive)
         XCTAssertEqual(claimer.calls, ["claim"])
 
-        // Still inside the window: the claim is re-asserted, not toggled.
+        // Still inside the window, but idle: a refresh 2 s later is far short
+        // of the idle cadence, so it must NOT re-assert. This is the fix for
+        // the 2 s now-playing flap that woke ControlCenter, audiomxd and
+        // bluetoothd ~30 times a minute.
         monitor.refreshClaim(now: t0.addingTimeInterval(2))
         XCTAssertTrue(monitor.mediaKeysActive)
-        XCTAssertEqual(claimer.claims, 2)
+        XCTAssertEqual(claimer.claims, 1, "idle refresh must not re-assert")
         XCTAssertEqual(claimer.releases, 0)
 
         // Window lapsed: the keys go back to the system, exactly once.
@@ -182,7 +188,7 @@ final class MediaKeyMonitorTests: XCTestCase {
         XCTAssertEqual(claimer.releases, 1)
         monitor.refreshClaim(now: stale.addingTimeInterval(2))
         XCTAssertEqual(claimer.releases, 1, "release must not repeat while already released")
-        XCTAssertEqual(claimer.claims, 2)
+        XCTAssertEqual(claimer.claims, 1)
     }
 
     func testAutoReclaimsAfterAConsumerReturns() {
@@ -199,15 +205,60 @@ final class MediaKeyMonitorTests: XCTestCase {
         XCTAssertEqual(claimer.calls, ["claim", "release", "claim"])
     }
 
-    func testOwnPolicyClaimsWithoutAnyConsumerAndReasserts() {
+    func testOwnPolicyClaimsWithoutAnyConsumerAndReassertsOnTheIdleCadence() {
         let (monitor, claimer) = makeMonitor(.own)
-        monitor.refreshClaim()
+        let t0 = Date()
+        monitor.refreshClaim(now: t0)
         XCTAssertTrue(monitor.mediaKeysActive)
-        monitor.refreshClaim()
-        monitor.refreshClaim()
-        XCTAssertTrue(monitor.mediaKeysActive)
-        XCTAssertEqual(claimer.claims, 3, "the claim is re-asserted on every refresh")
+        XCTAssertEqual(claimer.forced, [true], "the first claim fights for the role")
+
+        // Refreshes below the idle cadence are free.
+        monitor.refreshClaim(now: t0.addingTimeInterval(2))
+        monitor.refreshClaim(now: t0.addingTimeInterval(30))
+        XCTAssertEqual(claimer.claims, 1)
+
+        // Past the idle cadence: one unforced heartbeat.
+        monitor.refreshClaim(now: t0.addingTimeInterval(MediaKeyMonitor.idleReassertInterval))
+        XCTAssertEqual(claimer.claims, 2)
+        XCTAssertEqual(claimer.forced, [true, false], "the idle heartbeat must not toggle")
         XCTAssertEqual(claimer.releases, 0)
+    }
+
+    func testAPressOpensTheFastForcedCadenceThenItLapses() {
+        let (monitor, claimer) = makeMonitor(.own)
+        let t0 = Date()
+        monitor.refreshClaim(now: t0)
+        XCTAssertEqual(claimer.claims, 1)
+
+        // A real key press opens the fast window.
+        monitor.record(type: "play-pause", at: t0)
+        monitor.refreshClaim(now: t0.addingTimeInterval(MediaKeyMonitor.reassertInterval))
+        XCTAssertEqual(claimer.claims, 2)
+        XCTAssertEqual(claimer.forced.last, true, "inside the fast window the claim is forced")
+
+        // Once the fast window lapses, the idle cadence applies again: a
+        // refresh one fast-interval later is no longer due.
+        let idle = t0.addingTimeInterval(MediaKeyMonitor.fastWindow + 1)
+        monitor.refreshClaim(now: idle)
+        XCTAssertEqual(claimer.claims, 2, "no re-assert until the idle cadence elapses")
+    }
+
+    func testReassertDueReportsTheCadence() {
+        let (monitor, _) = makeMonitor(.own)
+        let t0 = Date()
+        monitor.refreshClaim(now: t0)
+
+        XCTAssertNil(monitor.reassertDue(now: t0.addingTimeInterval(2)), "idle and not due")
+        XCTAssertEqual(
+            monitor.reassertDue(now: t0.addingTimeInterval(MediaKeyMonitor.idleReassertInterval)),
+            false, "idle and due -> unforced"
+        )
+
+        monitor.record(type: "next", at: t0)
+        XCTAssertEqual(
+            monitor.reassertDue(now: t0.addingTimeInterval(MediaKeyMonitor.reassertInterval)),
+            true, "inside the fast window and due -> forced"
+        )
     }
 
     func testPassivePolicyNeverTouchesTheClaimer() {
