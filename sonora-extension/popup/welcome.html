@@ -2,56 +2,571 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Sonora — welcome</title>
     <style>
-      body { margin: 0; padding: 48px; background: #12111b; color: #ece9f5; font: 15px/1.5 -apple-system, system-ui, sans-serif; }
-      main { max-width: 560px; }
-      .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 28px; }
-      .brand img { width: 32px; height: 32px; border-radius: 11px; }
-      .brand span { font-family: "Space Mono", ui-monospace, "SF Mono", monospace; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
-      h1 { font-size: 20px; margin: 0 0 12px; }
-      h2 { font-size: 15px; margin: 32px 0 8px; }
-      p { color: #b3aec6; }
-      a.download { display: inline-block; margin-top: 16px; padding: 10px 18px; border-radius: 8px; background: #c7f56b; color: #12111b; font-weight: 600; text-decoration: none; }
-      ol { color: #b3aec6; padding-left: 20px; margin: 8px 0 0; }
-      li { margin-bottom: 6px; }
-      #status { margin-top: 32px; padding: 12px 14px; border-radius: 8px; background: #1b1926; min-height: 1.5em; }
-      #status.connected { background: #1f2a17; color: #c7f56b; }
-      .device { display: block; color: #b3aec6; font-size: 13px; }
+      /* Same tokens as the cockpit (popup.css), so the page a fresh install
+         lands on is recognisably the same product. */
+      :root {
+        --ink: #f6f1e8;
+        --muted: #a5a1b6;
+        --dim: #79758e;
+        --shell: #12111b;
+        --panel: #1b1927;
+        --line: rgba(246, 241, 232, 0.11);
+        --lime: #d5f36b;
+        --orchid: #9d84ff;
+        --glass: rgba(255, 255, 255, 0.045);
+        --glass-line: rgba(255, 255, 255, 0.12);
+        --sans: "DM Sans", "Plus Jakarta Sans", -apple-system, "Segoe UI", sans-serif;
+        --mono: "Space Mono", ui-monospace, "SF Mono", monospace;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        background:
+          radial-gradient(circle at 82% -6%, rgba(157, 132, 255, 0.20), transparent 34rem),
+          radial-gradient(circle at -8% 24%, rgba(213, 243, 107, 0.07), transparent 30rem),
+          var(--shell);
+        color: var(--ink);
+        font-family: var(--sans);
+        font-size: 15px;
+        line-height: 1.6;
+        letter-spacing: -0.012em;
+        min-height: 100vh;
+      }
+
+      .page {
+        max-width: 860px;
+        margin-inline: auto;
+        padding: clamp(28px, 6vw, 68px) 24px 72px;
+      }
+
+      /* ---------------- shared type ---------------- */
+
+      .eyebrow {
+        color: var(--dim);
+        font-family: var(--mono);
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        margin: 0 0 10px;
+      }
+
+      h1 {
+        font-size: clamp(30px, 5.2vw, 46px);
+        font-weight: 700;
+        letter-spacing: -0.035em;
+        line-height: 1.04;
+        margin: 0 0 14px;
+      }
+
+      h2 {
+        font-size: clamp(20px, 3vw, 25px);
+        font-weight: 700;
+        letter-spacing: -0.025em;
+        line-height: 1.15;
+        margin: 0 0 8px;
+      }
+
+      h3 {
+        font-size: 15px;
+        font-weight: 600;
+        letter-spacing: -0.015em;
+        margin: 0 0 3px;
+      }
+
+      p { margin: 0 0 14px; color: var(--muted); }
+      .lede { font-size: 17px; text-wrap: pretty; }
+      strong { color: var(--ink); font-weight: 600; }
+
+      kbd {
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid var(--line);
+        border-bottom-width: 2px;
+        border-radius: 5px;
+        font-family: var(--mono);
+        font-size: 11px;
+        padding: 2px 6px;
+        color: var(--ink);
+      }
+
+      code {
+        font-family: var(--mono);
+        font-size: 0.9em;
+        color: var(--lime);
+      }
+
+      section { margin-top: clamp(44px, 7vw, 72px); }
+      header + section { margin-top: clamp(36px, 4.5vw, 48px); }
+
+      /* ---------------- hero ---------------- */
+
+      .brand {
+        align-items: center;
+        display: flex;
+        gap: 10px;
+        margin-bottom: clamp(28px, 6vw, 54px);
+      }
+      .brand img { width: 30px; height: 30px; border-radius: 10px; }
+      .brand-name {
+        font-family: var(--mono);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+      .brand-tag { color: var(--dim); font-size: 12px; }
+
+      /* The signal band: the brand's equaliser mark, doing a job. Flat and
+         dim while the companion app is missing, lime and moving once the
+         bridge answers — so the page's only animation reports real state. */
+      .signal {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: linear-gradient(160deg, var(--panel) 0%, rgba(36, 32, 51, 0.6) 130%);
+        margin-top: 26px;
+        padding: 16px 18px 14px;
+      }
+      .signal-bars {
+        display: flex;
+        align-items: flex-end;
+        gap: 3px;
+        height: 34px;
+        margin-bottom: 12px;
+      }
+      .signal-bars i {
+        background: var(--dim);
+        border-radius: 1px;
+        display: block;
+        flex: 1;
+        height: 12%;
+        opacity: 0.5;
+        transform-origin: bottom;
+        transition: background 300ms ease, opacity 300ms ease, height 300ms ease;
+      }
+      .signal[data-state="live"] .signal-bars i {
+        background: var(--lime);
+        opacity: 1;
+        animation: bar 1100ms ease-in-out infinite alternate;
+      }
+      @keyframes bar { from { transform: scaleY(0.28); } to { transform: scaleY(1); } }
+
+      .signal-line {
+        align-items: baseline;
+        color: var(--muted);
+        display: flex;
+        flex-wrap: wrap;
+        font-size: 14px;
+        gap: 4px 10px;
+        margin: 0;
+      }
+      .signal-line::before {
+        background: var(--dim);
+        border-radius: 50%;
+        content: "";
+        height: 7px;
+        width: 7px;
+        align-self: center;
+      }
+      .signal[data-state="live"] .signal-line { color: var(--lime); }
+      .signal[data-state="live"] .signal-line::before { background: var(--lime); }
+      .signal-detail { color: var(--dim); font-family: var(--mono); font-size: 12px; }
+
+      /* ---------------- gesture tiles ---------------- */
+
+      .tiles {
+        display: grid;
+        gap: 14px;
+        grid-template-columns: 1fr;
+        margin-top: 22px;
+      }
+      @media (min-width: 620px) {
+        .tiles { grid-template-columns: 1fr 1fr; }
+      }
+
+      .tile {
+        background:
+          radial-gradient(circle at 30% 0%, rgba(255, 255, 255, 0.07), transparent 60%),
+          var(--glass);
+        border: 1px solid var(--glass-line);
+        border-radius: 18px;
+        -webkit-backdrop-filter: blur(14px) saturate(130%);
+        backdrop-filter: blur(14px) saturate(130%);
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.10),
+          0 12px 34px rgba(0, 0, 0, 0.34);
+        padding: 16px 18px;
+      }
+      .tile svg { display: block; width: 104px; height: 104px; flex: none; }
+      @media (min-width: 420px) {
+        .tile { align-items: center; display: flex; gap: 16px; }
+      }
+      .tile .gesture {
+        color: var(--dim);
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        margin: 0 0 6px;
+      }
+      .tile p { font-size: 13.5px; line-height: 1.5; margin: 0; }
+
+      .note {
+        border-left: 2px solid var(--line);
+        color: var(--dim);
+        font-size: 13.5px;
+        margin-top: 28px;
+        padding-left: 14px;
+      }
+      .note + .note { margin-top: 14px; }
+      .note strong { color: var(--muted); font-weight: 600; }
+
+      /* ---------------- plain rows ---------------- */
+
+      .rows { border-top: 1px solid var(--line); margin-top: 20px; }
+      .row {
+        border-bottom: 1px solid var(--line);
+        display: grid;
+        gap: 2px 22px;
+        grid-template-columns: 1fr;
+        padding: 15px 0;
+      }
+      @media (min-width: 620px) {
+        .row { grid-template-columns: 190px 1fr; }
+        .row h3 { margin: 0; }
+      }
+      .row p { font-size: 13.5px; margin: 0; }
+      .row .keys { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 6px; }
+      .row .keys span { color: var(--dim); font-size: 12.5px; }
+
+      /* ---------------- companion app ---------------- */
+
+      .cta { margin: 26px 0 30px; text-align: center; }
+
+      .download {
+        background: var(--lime);
+        border-radius: 10px;
+        color: var(--shell);
+        display: inline-block;
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+        margin: 0 0 8px;
+        padding: 12px 22px;
+        text-decoration: none;
+        transition: transform 140ms ease, box-shadow 140ms ease;
+      }
+      .download:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(213, 243, 107, 0.28); }
+      .download-note { color: var(--dim); font-size: 12.5px; margin: 0; }
+
+      /* The install really is a sequence, so it gets numbers. Nothing else
+         on the page does. */
+      ol.steps { counter-reset: step; list-style: none; margin: 0; padding: 0; }
+      ol.steps li {
+        border-top: 1px solid var(--line);
+        counter-increment: step;
+        color: var(--muted);
+        font-size: 14px;
+        padding: 13px 0 13px 40px;
+        position: relative;
+      }
+      ol.steps li::before {
+        color: var(--lime);
+        content: counter(step, decimal-leading-zero);
+        font-family: var(--mono);
+        font-size: 11px;
+        left: 0;
+        position: absolute;
+        top: 15px;
+      }
+
+      /* ---------------- footer ---------------- */
+
+      footer {
+        border-top: 1px solid var(--line);
+        color: var(--dim);
+        display: flex;
+        flex-wrap: wrap;
+        font-size: 12.5px;
+        gap: 8px 18px;
+        justify-content: space-between;
+        margin-top: clamp(44px, 7vw, 72px);
+        padding-top: 18px;
+      }
+      footer a { color: var(--muted); text-decoration: none; border-bottom: 1px solid var(--line); }
+      footer a:hover { color: var(--ink); }
+      #version { font-family: var(--mono); }
+
+      a:focus-visible,
+      .download:focus-visible {
+        outline: 2px solid var(--lime);
+        outline-offset: 3px;
+        border-radius: 4px;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        * { animation: none !important; transition: none !important; }
+      }
     </style>
   </head>
   <body>
-    <main>
-      <!-- Same lime mark as the popup header and the toolbar icon, so the
-           page a fresh install lands on is recognisably the extension. -->
-      <div class="brand">
-        <img src="../icons/icon-128.png" alt="" />
-        <span>sonora</span>
-      </div>
-      <h1>Sonora is installed and already working</h1>
-      <p>
-        Pin the toolbar icon and Sonora controls every audible tab right away —
-        nothing else to set up. The free companion app for macOS is optional: it
-        adds your Bluetooth headset's battery level to the cockpit.
-      </p>
-      <a
-        class="download"
-        href="https://github.com/YamineRL/sonora/releases/latest/download/HeadsetCompanion.dmg"
-        >Download HeadsetCompanion (free)</a
-      >
+    <!-- Shared paint for every earcup diagram below. -->
+    <svg width="0" height="0" aria-hidden="true" focusable="false" style="position: absolute">
+      <defs>
+        <radialGradient id="cup" cx="34%" cy="24%" r="82%">
+          <stop offset="0%" stop-color="rgba(255,255,255,0.16)" />
+          <stop offset="58%" stop-color="rgba(255,255,255,0.05)" />
+          <stop offset="100%" stop-color="rgba(255,255,255,0.02)" />
+        </radialGradient>
+        <radialGradient id="glow-lime" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="rgba(213,243,107,0.30)" />
+          <stop offset="100%" stop-color="rgba(213,243,107,0)" />
+        </radialGradient>
+        <radialGradient id="glow-orchid" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="rgba(157,132,255,0.34)" />
+          <stop offset="100%" stop-color="rgba(157,132,255,0)" />
+        </radialGradient>
+        <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="rgba(255,255,255,0.34)" />
+          <stop offset="100%" stop-color="rgba(255,255,255,0.06)" />
+        </linearGradient>
+        <marker id="tip-lime" viewBox="0 0 10 10" refX="7" refY="5"
+                markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="#d5f36b" />
+        </marker>
+        <marker id="tip-orchid" viewBox="0 0 10 10" refX="7" refY="5"
+                markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="#9d84ff" />
+        </marker>
+      </defs>
+    </svg>
 
-      <h2>Three steps</h2>
-      <ol>
-        <li>Open the DMG and drag <strong>HeadsetCompanion</strong> to Applications.</li>
-        <li>
-          Right-click the app → <strong>Open</strong> → <strong>Open</strong>. This is
-          needed once, because the app is free and not notarised by Apple.
-        </li>
-        <li>That's it — this page notices the app the moment it starts.</li>
-      </ol>
+    <div class="page">
+      <header>
+        <!-- Same lime mark as the popup header and the toolbar icon. -->
+        <div class="brand">
+          <img src="../icons/icon-128.png" alt="" />
+          <span class="brand-name">Sonora</span>
+          <span class="brand-tag">browser media cockpit</span>
+        </div>
 
-      <p id="status">Waiting for HeadsetCompanion…</p>
-    </main>
+        <h1>Your headset is now the remote.</h1>
+        <p class="lede">
+          Sonora controls whatever tab is making sound — a video, a podcast, a
+          radio stream — from the panel already on your ear. Nothing to set up:
+          pin the toolbar icon and it's working.
+        </p>
+
+        <div class="signal" id="signal" data-state="waiting">
+          <div class="signal-bars" id="signal-bars" aria-hidden="true"></div>
+          <p class="signal-line" id="status" role="status">Waiting for HeadsetCompanion…</p>
+        </div>
+      </header>
+
+      <section>
+        <p class="eyebrow">Headset controls</p>
+        <h2>Four gestures, one hand</h2>
+        <p>
+          On a WH-1000XM4 these are the right-panel gestures. Any headset that
+          sends the same commands works the same way.
+        </p>
+
+        <div class="tiles">
+          <div class="tile">
+            <svg viewBox="0 0 128 128" role="img" aria-label="Two taps in the middle of the touch panel">
+              <circle cx="64" cy="64" r="62" fill="url(#glow-lime)" />
+              <circle cx="64" cy="64" r="52" fill="url(#cup)" stroke="url(#rim)" stroke-width="1.4" />
+              <path d="M27 52 A 40 40 0 0 1 62 22" fill="none" stroke="rgba(255,255,255,0.34)"
+                    stroke-width="2" stroke-linecap="round" />
+              <circle cx="64" cy="64" r="38" fill="none" stroke="rgba(255,255,255,0.09)" />
+              <circle cx="64" cy="64" r="30" fill="none" stroke="#d5f36b" stroke-opacity="0.22" />
+              <circle cx="64" cy="64" r="20" fill="none" stroke="#d5f36b" stroke-opacity="0.42" />
+              <circle cx="64" cy="64" r="8" fill="#d5f36b" />
+            </svg>
+            <div class="tile-copy">
+              <p class="gesture">Double-tap</p>
+              <h3>Play or pause</h3>
+              <p>Toggles the source Sonora is controlling. It keeps its place.</p>
+            </div>
+          </div>
+          <div class="tile">
+            <svg viewBox="0 0 128 128" role="img" aria-label="Swipe forward across the touch panel">
+              <circle cx="64" cy="64" r="62" fill="url(#glow-lime)" />
+              <circle cx="64" cy="64" r="52" fill="url(#cup)" stroke="url(#rim)" stroke-width="1.4" />
+              <path d="M27 52 A 40 40 0 0 1 62 22" fill="none" stroke="rgba(255,255,255,0.34)"
+                    stroke-width="2" stroke-linecap="round" />
+              <circle cx="64" cy="64" r="38" fill="none" stroke="rgba(255,255,255,0.09)" />
+              <path d="M36 64 H88" stroke="#d5f36b" stroke-width="3.5" stroke-linecap="round"
+                    marker-end="url(#tip-lime)" />
+              <path d="M34 52 H46" stroke="#d5f36b" stroke-opacity="0.28" stroke-width="3" stroke-linecap="round" />
+              <path d="M34 76 H46" stroke="#d5f36b" stroke-opacity="0.28" stroke-width="3" stroke-linecap="round" />
+            </svg>
+            <div class="tile-copy">
+              <p class="gesture">Swipe forward</p>
+              <h3>Next source</h3>
+              <p>Starts the next audible tab. The one you were on pauses.</p>
+            </div>
+          </div>
+          <div class="tile">
+            <svg viewBox="0 0 128 128" role="img" aria-label="Swipe backward across the touch panel">
+              <circle cx="64" cy="64" r="62" fill="url(#glow-orchid)" />
+              <circle cx="64" cy="64" r="52" fill="url(#cup)" stroke="url(#rim)" stroke-width="1.4" />
+              <path d="M27 52 A 40 40 0 0 1 62 22" fill="none" stroke="rgba(255,255,255,0.34)"
+                    stroke-width="2" stroke-linecap="round" />
+              <circle cx="64" cy="64" r="38" fill="none" stroke="rgba(255,255,255,0.09)" />
+              <path d="M92 64 H40" stroke="#9d84ff" stroke-width="3.5" stroke-linecap="round"
+                    marker-end="url(#tip-orchid)" />
+              <path d="M82 52 H94" stroke="#9d84ff" stroke-opacity="0.28" stroke-width="3" stroke-linecap="round" />
+              <path d="M82 76 H94" stroke="#9d84ff" stroke-opacity="0.28" stroke-width="3" stroke-linecap="round" />
+            </svg>
+            <div class="tile-copy">
+              <p class="gesture">Swipe back</p>
+              <h3>Previous source</h3>
+              <p>The same, the other way. The list of tabs wraps around.</p>
+            </div>
+          </div>
+          <div class="tile">
+            <svg viewBox="0 0 128 128" role="img" aria-label="Swipe forward and hold to jump ten seconds">
+              <circle cx="64" cy="64" r="62" fill="url(#glow-lime)" />
+              <circle cx="64" cy="64" r="52" fill="url(#cup)" stroke="url(#rim)" stroke-width="1.4" />
+              <path d="M27 52 A 40 40 0 0 1 62 22" fill="none" stroke="rgba(255,255,255,0.34)"
+                    stroke-width="2" stroke-linecap="round" />
+              <circle cx="64" cy="64" r="38" fill="none" stroke="rgba(255,255,255,0.09)" />
+              <path d="M34 56 H86" stroke="#d5f36b" stroke-width="3.5" stroke-linecap="round"
+                    marker-end="url(#tip-lime)" />
+              <path d="M34 56 H86" stroke="#d5f36b" stroke-opacity="0.3" stroke-width="3.5"
+                    stroke-linecap="round" stroke-dasharray="1 7" />
+              <rect x="40" y="72" width="48" height="21" rx="10.5"
+                    fill="rgba(213,243,107,0.12)" stroke="#d5f36b" stroke-opacity="0.45" />
+              <text x="64" y="87" text-anchor="middle" fill="#d5f36b"
+                    font-family="Space Mono, ui-monospace, monospace" font-size="12">10s</text>
+            </svg>
+            <div class="tile-copy">
+              <p class="gesture">Swipe and hold</p>
+              <h3>Jump 10 seconds</h3>
+              <p>Hold forward to skip ahead, back to go back. Live streams ignore it.</p>
+            </div>
+          </div>
+        </div>
+
+        <p class="note">
+          <strong>These gestures need HeadsetCompanion.</strong> Your headset
+          talks to macOS, not to Chrome — the companion app below is what passes
+          the commands along. Until it's running, the buttons do whatever they
+          did before.
+        </p>
+        <p class="note">
+          <strong>Volume is still macOS.</strong> Swipe up or down and you're
+          moving the system level, as always. Sonora has its own slider in the
+          cockpit.
+        </p>
+        <p class="note">
+          <strong>If a gesture goes to the wrong app,</strong> something else
+          claimed the media keys — starting playback in another app does that.
+          The cockpit's top line names who holds them: <code>keys: Sonora</code>.
+          Press again and Sonora takes them back.
+        </p>
+      </section>
+
+      <section>
+        <p class="eyebrow">In the cockpit</p>
+        <h2>What the popup adds</h2>
+
+        <div class="rows">
+          <div class="row">
+            <h3>Pin it first</h3>
+            <div>
+              <p>
+                Click the puzzle piece in Chrome's toolbar, then the pin beside
+                Sonora. The icon shows a count of the tabs currently playing.
+              </p>
+            </div>
+          </div>
+          <div class="row">
+            <h3>Keyboard, in the popup</h3>
+            <div>
+              <p>The cockpit takes keys of its own while it's open.</p>
+              <div class="keys">
+                <span><kbd>Space</kbd> play / pause</span>
+                <span><kbd>←</kbd> <kbd>→</kbd> seek 15s</span>
+                <span><kbd>⌘</kbd> <kbd>K</kbd> switch source</span>
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <h3>Every audible tab</h3>
+            <div>
+              <p>
+                Sources are listed in tab order, with the one you're controlling
+                highlighted. Click any of them to move the signal there.
+              </p>
+            </div>
+          </div>
+          <div class="row">
+            <h3>Send audio elsewhere</h3>
+            <div>
+              <p>
+                Route to… picks the output device for the controlled tab, so a
+                stream can go to the headset while the rest of the machine
+                doesn't.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <p class="eyebrow">Companion app · macOS</p>
+        <h2>HeadsetCompanion</h2>
+        <p class="lede">
+          A small menu-bar app. It reads your headset's real battery level and
+          passes the headset's buttons through to Sonora. Free, open source, and
+          optional — the cockpit works without it.
+        </p>
+
+        <div class="cta">
+          <a
+            class="download"
+            href="https://github.com/YamineRL/sonora/releases/latest/download/HeadsetCompanion.dmg"
+            >Download HeadsetCompanion</a
+          >
+          <!-- The release workflow builds on the macos-14 runner, so the DMG
+               that link serves is arm64 only; Info.plist floors it at 13.0. -->
+          <p class="download-note">Apple Silicon · macOS 13 or later</p>
+        </div>
+
+        <ol class="steps">
+          <li>Open the DMG and drag <strong>HeadsetCompanion</strong> to Applications.</li>
+          <li>
+            Right-click it → <strong>Open</strong> → <strong>Open</strong>. Once
+            only: the app is free and unsigned, so Gatekeeper asks the first time.
+          </li>
+          <li>
+            Watch the bar at the top of this page — it turns lime the moment the
+            app starts serving.
+          </li>
+        </ol>
+
+        <p class="note">
+          <strong>Nothing leaves your machine.</strong> The app serves on
+          <code>127.0.0.1:8745</code> and only Sonora reads it. No account, no
+          telemetry, no network calls.
+        </p>
+      </section>
+
+      <footer>
+        <span id="version">Sonora</span>
+        <span>
+          <a href="https://github.com/YamineRL/sonora">Source on GitHub</a>
+          ·
+          <a href="https://github.com/YamineRL/sonora/issues">Report a problem</a>
+        </span>
+      </footer>
+    </div>
     <script src="welcome.js"></script>
   </body>
 </html>
