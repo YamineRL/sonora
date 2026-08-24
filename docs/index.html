@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sonora — Your headset's battery, in the menu bar.</title>
-<meta name="description" content="A free, open-source menu-bar app for macOS that shows any Bluetooth headset's battery, and replaces Apple's Sound menu. Plus a Chrome extension that controls every audible tab from one popup. No account, no telemetry.">
+<meta name="description" content="Free, open-source macOS app and Chrome extension: your headset's buttons control the browser tab you're actually listening to — tap to pause, swipe to switch tabs, hold to jump ten seconds — plus any Bluetooth headset's battery in the menu bar. No account, no telemetry.">
 <link rel="icon" href="logo.png">
 <meta property="og:title" content="Sonora">
 <meta property="og:description" content="Your headset's battery, in the menu bar. Any brand.">
@@ -245,7 +245,7 @@ footer a { margin: 0 10px; }
   <div class="wrap">
     <img class="logo" src="logo.png" alt="">
     <h1>Sonora</h1>
-    <p class="tagline">Every noisy tab in one popup — and your headset's battery in the menu bar.</p>
+    <p class="tagline">The buttons on your headset control the tab you're actually listening to — and its battery sits in the menu bar.</p>
     <div class="cta">
       <a class="btn" href="https://github.com/YamineRL/sonora/releases/latest/download/HeadsetCompanion.dmg">Download for Mac</a>
       <a class="btn" href="https://github.com/YamineRL/sonora#install-the-extension" rel="noopener">Install the extension</a>
@@ -261,26 +261,27 @@ footer a { margin: 0 10px; }
 
 <section id="extension">
   <div class="wrap">
-    <h2>A media cockpit for Chrome</h2>
-    <p class="lede">Sonora's Chrome extension finds every tab making noise — YouTube, a podcast, a web radio you opened on Tuesday — and puts them all in one popup. Free, open source, and it shows the battery the Mac app is reading.</p>
+    <h2>Run the browser from your ear</h2>
+    <p class="lede">Your hands are somewhere else — on a keyboard doing other work, on a coffee, across the room. Tap the earcup and the tab you're listening to pauses. Not the last video you opened, not iTunes, not whatever macOS decided was "now playing": the one actually in your ears.</p>
     <div class="grid">
       <div class="card">
-        <div class="icon">📻</div>
-        <h3>Every audible tab, one list</h3>
-        <p>Whatever is playing anywhere in the browser turns up in the popup, named and ready to be paused — including the one you can hear but can't find.</p>
-      </div>
-      <div class="card">
         <div class="icon">⏯️</div>
-        <h3>Play, seek, volume</h3>
-        <p>Full transport controls per tab: play and pause, scrub the position, set the level. No hunting through windows to turn one thing down.</p>
+        <h3>Tap — pause the right thing</h3>
+        <p>The gesture you already use, finally landing where you mean it. Sonora knows which tab you're hearing, so a tap stops that one and leaves everything else alone.</p>
       </div>
       <div class="card">
-        <div class="icon">🔗</div>
-        <h3>The battery comes along</h3>
-        <p>No browser API exposes headset battery — Chrome on macOS can't even see classic Bluetooth headsets. The app hands the number over on loopback, so the popup can show it next to your tabs.</p>
+        <div class="icon">⏭️</div>
+        <h3>Swipe — change what's playing</h3>
+        <p>Forward and back step through every tab making noise, starting the next and pausing the one you left. Two podcasts and a radio stream become one queue you move through without looking.</p>
+      </div>
+      <div class="card">
+        <div class="icon">⏩</div>
+        <h3>Swipe and hold — jump 10s</h3>
+        <p>Ad break, waffle, a bit you want again: hold forward to skip ahead, hold back to go back. Ten seconds a go, on the tab you're listening to.</p>
       </div>
     </div>
-    <p class="centre meta">The extension works on its own; the Mac app is what adds the battery. It isn't on the Chrome Web Store yet: download the zip from the latest release and load it unpacked — <a href="https://github.com/YamineRL/sonora#install-the-extension" rel="noopener">three steps, on GitHub</a>, no toolchain needed.</p>
+    <p class="lede" style="margin-top:34px">And when you do want the screen, the popup is there: every audible tab in one list, transport and volume for each, your headset's battery on the same card.</p>
+    <p class="centre meta">The gestures need the Mac app — it's what takes the media keys from whatever grabbed them. The extension's tab controls work on their own. It isn't on the Chrome Web Store yet: download the zip from the latest release and load it unpacked — <a href="https://github.com/YamineRL/sonora#install-the-extension" rel="noopener">three steps, on GitHub</a>, no toolchain needed.</p>
   </div>
 </section>
 

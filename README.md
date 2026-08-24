@@ -1,8 +1,8 @@
 <h1 align="center">Sonora — HeadsetCompanion</h1>
 
 <p align="center">
-  <b>Your headset's battery, in the macOS menu bar. Any brand. No account, no cloud, no telemetry.</b><br>
-  <sub>A 500 KB menu-bar app that also replaces Apple's Sound menu — and feeds the Sonora Chrome extension.</sub>
+  <b>The buttons on your headset control the tab you're actually listening to.</b><br>
+  <sub>Tap to pause it, swipe to move between audible tabs, swipe and hold to jump ten seconds — and read any headset's battery in the menu bar. A 500 KB macOS app, free and open source. No account, no cloud, no telemetry.</sub>
 </p>
 
 <p align="center"><a href="https://yaminerl.github.io/sonora/"><strong>sonora on the web →</strong></a></p>
@@ -25,7 +25,20 @@
 
 ## The problem
 
-macOS knows your headset's battery level. It just refuses to *show* it anywhere
+**Your headset's buttons go to the wrong thing.** You are listening to a video
+in a background tab, you tap the earcup to pause it, and something else pauses
+— or nothing does. macOS delivers those commands to whichever app most
+recently claimed to be "now playing", which is rarely the tab you mean and is
+often not the browser at all. Skip lands somewhere arbitrary. Seek is not
+offered to you at all.
+
+HeadsetCompanion takes that role and hands the commands to Sonora, so the
+gestures act on the tab you are actually hearing: **tap** to play or pause it,
+**swipe** forward or back to move between audible tabs, **swipe and hold** to
+jump ten seconds either way.
+
+**And the battery is hidden.** macOS knows your headset's battery level. It
+just refuses to *show* it anywhere
 you'll actually look: you have to open the Bluetooth menu, hover the device, and
 read it in a submenu. Meanwhile the number you do see is often **stale** —
 macOS keeps showing the level from the last time your headset volunteered one,
@@ -39,13 +52,14 @@ headset battery at all**.
 
 | | |
 |---|---|
+| **Your headset drives the browser** | Tap plays or pauses the tab you're listening to. Swipe forward or back moves to the next or previous audible tab. Swipe and hold jumps ±10 s. The app claims the media keys back from whatever grabbed them, and re-claims them when a tab steals the role. |
 | **Battery at a glance** | Five green dots (the default), or a tiny percentage, right under a headphones glyph. One menu-bar slot — narrower than the clock. |
 | **Actually current** | Re-reads the level from a fresh process, which is the only way to dodge the per-process cache that makes other tools (and macOS itself) report yesterday's number. |
 | **Any headset** | Sony, Bose, AirPods, Jabra, Anker, the €19 pair from the airport. Nothing in the app names a model: it reads whatever the system Bluetooth stack reports, with a BLE Battery Service fallback. |
 | **Replaces the Sound menu** | Volume slider, every output device, and each headset's battery on its own row. One click instead of Control Centre → Sound → hover. |
 | **Follows what you're listening on** | Switch output to another headset and the menu bar switches with it, within the same second. |
 | **Feeds the browser** | Serves `GET http://127.0.0.1:8745/battery` on loopback so the [Sonora Chrome extension](#the-sonora-chrome-extension) can show the same number next to your tabs. |
-| **Media keys that behave** | Optionally claims the play/pause keys so your headset's buttons control the tab you mean, not whatever Chrome last touched. |
+| **You can switch it off** | The key-claiming is policy-driven (`auto` by default, or `passive` / `own`): `auto` only takes the keys while the cockpit is listening, so the rest of the time they go wherever they went before. |
 
 <p align="center">
   <img src="docs/img/menu.png" alt="The Sound menu: volume and output devices, each with its own battery" width="360">
