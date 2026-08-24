@@ -178,10 +178,11 @@ public final class BridgeServer {
         }
     }
 
-    /// Answers `GET /events?since=<int>&wait=<seconds>`.
+    /// Answers `GET /events?since=<int>&wait=<seconds>&sources=<int>`.
     ///
     /// Every call marks a Sonora consumer as present (that's what lets the
-    /// `.auto` policy claim the keys). With `wait > 0` and nothing
+    /// `.auto` policy claim the keys), and carries how many media sources the
+    /// browser has, so the claim can be dropped entirely when there are none. With `wait > 0` and nothing
     /// newer than `since`, the connection is held on this connection's own
     /// thread until an event arrives or the wait elapses.
     private func eventsResponse(path: String) -> Data {
@@ -191,7 +192,7 @@ public final class BridgeServer {
                 path: path, events: [], seq: 0, mediaKeys: false
             )
         }
-        eventSource.noteConsumerSeen()
+        eventSource.noteConsumerSeen(sources: query.sources)
         let result = query.wait > 0
             ? eventSource.events(since: query.since, waitingUpTo: TimeInterval(query.wait))
             : eventSource.events(since: query.since)

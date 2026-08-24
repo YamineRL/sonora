@@ -248,6 +248,23 @@ final class BridgeProtocolTests: XCTestCase {
         XCTAssertEqual(garbage.wait, 0)
     }
 
+    func testParseEventsQueryReadsTheSourceCount() {
+        let none = BridgeProtocol.parseEventsQuery("/events?since=1&wait=5")
+        XCTAssertNil(none.sources, "absent must stay distinguishable from zero")
+
+        let zero = BridgeProtocol.parseEventsQuery("/events?since=1&wait=5&sources=0")
+        XCTAssertEqual(zero.sources, 0)
+
+        let some = BridgeProtocol.parseEventsQuery("/events?sources=3")
+        XCTAssertEqual(some.sources, 3)
+
+        let negative = BridgeProtocol.parseEventsQuery("/events?sources=-2")
+        XCTAssertEqual(negative.sources, 0, "clamped, not negative")
+
+        let garbage = BridgeProtocol.parseEventsQuery("/events?sources=lots")
+        XCTAssertNil(garbage.sources, "unparseable is not a report")
+    }
+
     // MARK: - makeOptionsResponse
 
     func testMakeOptionsResponse() {

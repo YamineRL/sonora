@@ -46,8 +46,17 @@ public protocol MediaKeyEventSource: AnyObject {
     /// least one event newer than `since` exists (long poll).
     func events(since: Int, waitingUpTo timeout: TimeInterval) -> (events: [MediaKeyEvent], seq: Int)
     /// Records that a Sonora consumer asked for events just now (drives the
-    /// `.auto` claim policy).
-    func noteConsumerSeen()
+    /// `.auto` claim policy), and how many media sources the browser has.
+    ///
+    /// `sources` is `nil` when the consumer did not report a count, which is
+    /// what an extension older than the source gate does.
+    func noteConsumerSeen(sources: Int?)
+}
+
+extension MediaKeyEventSource {
+    /// A consumer that reports no count at all: treated as "unknown", never
+    /// as "none", so an older extension keeps the keys.
+    public func noteConsumerSeen() { noteConsumerSeen(sources: nil) }
 }
 
 /// The side effect of owning the media keys: asserting (or dropping) the
@@ -128,6 +137,8 @@ public final class MediaKeyMonitor: ObservableObject, MediaKeyEventSource {
     private var sequence = 0
     private var claiming = false
     private var lastConsumerSeen: Date?
+    /// Media sources the browser last reported, or `nil` if it never has.
+    private var lastSourceCount: Int?
     /// When a media key was last actually pressed — opens the fast window.
     private var lastInteractionAt: Date?
     /// When the claim was last asserted, forced or not.
@@ -270,9 +281,12 @@ public final class MediaKeyMonitor: ObservableObject, MediaKeyEventSource {
     }
 
     /// Records that a Sonora consumer asked for events just now.
-    public func noteConsumerSeen() {
+    public func noteConsumerSeen(sources: Int?) {
         condition.lock()
         lastConsumerSeen = Date()
+        // Only overwrite when the consumer actually said something. A stray
+        // request without the parameter must not erase a known count.
+        if let sources { lastSourceCount = sources }
         condition.unlock()
     }
 
@@ -303,8 +317,24 @@ public final class MediaKeyMonitor: ObservableObject, MediaKeyEventSource {
     /// Whether the bridge should be the now-playing app right now.
     ///
     /// `.auto` claims only while a `/events` request has been seen within
-    /// `consumerWindow` — so the browser keeps its keys unless Sonora is
-    /// actually listening.
+    /// `consumerWindow` **and** the browser reported at least one media
+    /// source — so the browser keeps its keys unless Sonora is actually
+    /// listening, and the claim costs nothing while there is nothing to
+    /// control.
+    ///
+    /// The second half is what keeps the machine quiet. Holding the role is
+    /// not free: the idle heartbeat re-asserts it every
+    /// `idleReassertInterval`, and every re-assert is a system-wide
+    /// MediaRemote broadcast that wakes `duetexpertd` and friends — measured
+    /// at ~4 wakeups a minute, all day, even with no media tab open at all.
+    /// There is no way to ask macOS whether we still hold the role
+    /// (`MRMediaRemoteGetNowPlayingApplicationPID` answers 0 for an
+    /// unentitled process on macOS 26, and the change notifications never
+    /// arrive), so the heartbeat cannot be replaced — only skipped when it
+    /// buys nothing.
+    ///
+    /// A count of `nil` means the consumer never reported one: an extension
+    /// older than this gate. It keeps the previous always-claim behaviour.
     public func shouldClaim(now: Date = Date()) -> Bool {
         switch policy {
         case .passive:
@@ -314,9 +344,11 @@ public final class MediaKeyMonitor: ObservableObject, MediaKeyEventSource {
         case .auto:
             condition.lock()
             let seen = lastConsumerSeen
+            let sources = lastSourceCount
             condition.unlock()
             guard let seen else { return false }
-            return now.timeIntervalSince(seen) <= Self.consumerWindow
+            guard now.timeIntervalSince(seen) <= Self.consumerWindow else { return false }
+            return (sources ?? 1) > 0
         }
     }
 

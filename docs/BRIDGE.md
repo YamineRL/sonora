@@ -165,7 +165,7 @@ which would otherwise hold the port).
 
 - `GET /battery` → `200` + the JSON below
 - `GET /health` → same body
-- `GET /events?since=<int>&wait=<seconds>` → `200` + the media-key event JSON
+- `GET /events?since=<int>&wait=<seconds>&sources=<int>` → `200` + the media-key event JSON
   (see *Media keys*)
 - `GET /debug` → `200` `text/plain` — the last ~80 log lines (diagnostics; loopback-only)
 - `OPTIONS` (any path) → `204` (CORS preflight)
@@ -251,7 +251,7 @@ the claim is **re-asserted every 2 s** while the bridge is claiming.
 
 | `SONORA_MEDIA_KEYS` | behavior |
 |---------------------|----------|
-| unset / `auto` (default) | claim **only** while a Sonora consumer is listening — i.e. an `/events` request arrived within the last 30 s — and release as soon as that window lapses, handing the keys back to the browser. |
+| unset / `auto` (default) | claim **only** while a Sonora consumer is listening — i.e. an `/events` request arrived within the last 30 s — **and** that consumer reported at least one media source. Release as soon as either stops being true, handing the keys back to the browser. |
 | `passive`           | never claim: the browser (or whatever else) keeps the keys. Commands only arrive if macOS happens to route them here anyway, so this is effectively off. |
 | `own`               | always claim: Sonora owns the media keys for as long as the bridge runs. |
 
@@ -268,15 +268,31 @@ now-playing app by design — nothing is intercepted, nothing is tapped, so
 there is no permission to grant and nothing to re-toggle after a rebuild.
 
 **The `/events` contract.** `since` is the caller's cursor (default `0`),
-`wait` the long-poll budget in seconds (default `0`, max `25`). The response
+`wait` the long-poll budget in seconds (default `0`, max `25`), and `sources`
+how many media tabs the caller currently has. The response
 carries the events with `seq > since`, oldest first, plus the current max
 `seq` to use as the next cursor. With `wait > 0` and nothing new, the bridge
 holds the connection until an event arrives or the wait elapses (returning an
 empty `events` array); each connection is served on its own thread, so a
 parked long poll never blocks `/battery` or another `/events` caller.
 
+`sources` is what lets the bridge stop claiming when there is nothing to
+control. Holding the now-playing role is not free: it is re-asserted every
+15 s, and every re-assert is a system-wide MediaRemote broadcast that wakes
+`duetexpertd`, ControlCenter and the audio daemons — measured at ~4 wakeups a
+minute, around the clock, even with no media tab open. The bridge cannot ask
+macOS whether it still holds the role (`MRMediaRemoteGetNowPlayingApplicationPID`
+answers `0` for an unentitled process on macOS 26, and the change
+notifications never arrive), so the heartbeat cannot be replaced — only
+skipped when it buys nothing. Report `sources=0` and the claim is dropped;
+report one or more and it comes straight back.
+
+Omitting the parameter means "I did not say", not "none": a consumer that
+never sends it keeps the old always-claim behaviour, so an older extension
+still works against a newer bridge.
+
 ```bash
-curl -s 'http://127.0.0.1:8745/events?since=0&wait=25'
+curl -s 'http://127.0.0.1:8745/events?since=0&wait=25&sources=2'
 ```
 
 ```json
@@ -374,7 +390,7 @@ on them.
 | `battery: null` while `connected: true` | A reading hasn't arrived from the reporting source yet — the 30 s GATT re-read / 10 s system poll usually resolves it; wait a few seconds. |
 | Extension shows "bridge offline" | Is the bridge running? Check with `curl http://127.0.0.1:8745/health` in a terminal. |
 | First launch: Bluetooth prompt ignored / app shows no BLE | Re-run `open "HeadsetCompanion.app"` after accepting the prompt. (A bare `swift run` can never be granted — that's by design of macOS TCC.) |
-| `mediaKeys: false` / menu footer says "browser" | Under the default `auto` policy the bridge only claims while something polls `/events`. Poll it once (`curl -s 'localhost:8745/events?since=0&wait=0'`) and it claims within 2 s, or set `SONORA_MEDIA_KEYS=own`. |
+| `mediaKeys: false` / menu footer says "browser" | Under the default `auto` policy the bridge only claims while something polls `/events` **and** reports a media source. Poll it once (`curl -s 'localhost:8745/events?since=0&wait=0&sources=1'`) and it claims within 2 s, or set `SONORA_MEDIA_KEYS=own`. Note `sources=1`: without it the poll marks a consumer present but says nothing about sources, and with `sources=0` the bridge deliberately will not claim. |
 | A tap play/pauses the browser instead of Sonora | The browser re-claimed now-playing (a tab started playing) and the bridge hadn't re-asserted yet — it does so every 2 s. If it persists, check `/debug` for a `released now-playing` line: the consumer window (30 s) probably lapsed. |
 | Media keys should stay with the browser | Set `SONORA_MEDIA_KEYS=passive` and re-`open` the app — the bridge then never claims. |
 | `/events` never returns anything | Is `mediaKeys` true in `/health`? Then check `curl -s localhost:8745/debug` for `[media-keys] received …` lines. |

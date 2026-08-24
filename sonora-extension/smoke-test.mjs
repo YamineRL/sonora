@@ -82,6 +82,14 @@ const checks = {
     readFileSync(path.join(root, "dist/background/service-worker.js"), "utf8").includes("seek-forward") &&
     readFileSync(path.join(root, "dist/background/service-worker.js"), "utf8").includes("seek-backward") &&
     readFileSync(path.join(root, "background/service-worker.ts"), "utf8").includes("HEADSET_SEEK_STEP = 10"),
+  // The bridge drops the now-playing claim when the browser has no media
+  // tabs, which is only safe if the count actually reaches it — on every
+  // poll, and out of band the moment a tab appears.
+  "poll reports the media-source count":
+    readFileSync(path.join(root, "dist/background/service-worker.js"), "utf8").includes("sources=") &&
+    readFileSync(path.join(root, "background/service-worker.ts"), "utf8").includes("&sources=${mediaTabs.size}"),
+  "source-count changes are reported out of band":
+    readFileSync(path.join(root, "dist/background/service-worker.js"), "utf8").includes("wait=0&sources="),
   "reveal-device-names button in bundle": bundle.includes("Reveal device names"),
   "icons ship in the bundle": [16, 32, 48, 128].every((n) =>
     existsSync(path.join(root, `dist/icons/icon-${n}.png`))),

@@ -62,12 +62,18 @@ function rememberState(tabId: number, state: MediaState): void {
   const had = mediaTabs.has(tabId);
   if (state.hasMedia) mediaTabs.add(tabId);
   else mediaTabs.delete(tabId);
-  if (had !== state.hasMedia) void saveMediaTabs([...mediaTabs]);
+  if (had !== state.hasMedia) {
+    void saveMediaTabs([...mediaTabs]);
+    reportSourceCount();
+  }
 }
 
 function forgetTab(tabId: number): void {
   knownStates.delete(tabId);
-  if (mediaTabs.delete(tabId)) void saveMediaTabs([...mediaTabs]);
+  if (mediaTabs.delete(tabId)) {
+    void saveMediaTabs([...mediaTabs]);
+    reportSourceCount();
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -426,13 +432,39 @@ interface BridgeEventsResponse {
 }
 
 let mediaKeyPolling = false;
+/**
+ * The bridge only claims the media keys while the browser has something to
+ * control (see `shouldClaim` in MediaKeyMonitor.swift): holding the
+ * now-playing role costs a system-wide MediaRemote broadcast every 15 s,
+ * which is pure waste with no media tab open.
+ *
+ * The count rides the normal `/events` poll, but that poll parks for
+ * `BRIDGE_WAIT_S`, so a 0 -> 1 transition has to be pushed out of band or the
+ * headset stays dead for up to 25 s after you open a video.
+ */
+let lastReportedSources = -1;
+/** Mirrors the poll loop's cursor so an out-of-band report asks for nothing. */
+let bridgeSince = 0;
+
+function reportSourceCount(): void {
+  const count = mediaTabs.size;
+  if (count === lastReportedSources) return;
+  lastReportedSources = count;
+  // Fire and forget: the answer is the parked long poll's job, and a bridge
+  // that is not running simply refuses the connection.
+  void fetch(`${BRIDGE_EVENTS_URL}?since=${bridgeSince}&wait=0&sources=${count}`).catch(
+    () => undefined,
+  );
+}
 
 async function fetchBridgeEvents(
   since: number,
   waitSeconds: number,
 ): Promise<BridgeEventsResponse | null> {
   try {
-    const res = await fetch(`${BRIDGE_EVENTS_URL}?since=${since}&wait=${waitSeconds}`);
+    const res = await fetch(
+      `${BRIDGE_EVENTS_URL}?since=${since}&wait=${waitSeconds}&sources=${mediaTabs.size}`,
+    );
     if (!res.ok) return null;
     const data = (await res.json()) as BridgeEventsResponse;
     return data && isBridgeApp(data.app) ? data : null;
@@ -493,6 +525,7 @@ async function mediaKeyLoop(): Promise<void> {
       const head = await fetchBridgeEvents(0, 0);
       if (!head) return; // offline — the alarm retries within a minute
       since = head.seq ?? 0;
+      bridgeSince = since;
       await saveBridgeSeq(since);
     }
     for (;;) {
@@ -518,6 +551,7 @@ async function mediaKeyLoop(): Promise<void> {
         await handleMediaKey(event.type);
       }
       if (typeof data.seq === "number" && data.seq > since) since = data.seq;
+      bridgeSince = since;
       await saveBridgeSeq(since);
     }
   } finally {

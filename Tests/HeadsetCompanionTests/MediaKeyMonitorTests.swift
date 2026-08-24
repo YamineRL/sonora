@@ -188,6 +188,73 @@ final class MediaKeyMonitorTests: XCTestCase {
         XCTAssertFalse(monitor.shouldClaim(now: stale), "consumer window must expire")
     }
 
+    // MARK: - Source gate
+
+    func testAutoPolicyDoesNotClaimWhenTheBrowserHasNoMediaSources() {
+        let (monitor, _) = makeMonitor(.auto)
+        monitor.noteConsumerSeen(sources: 0)
+        XCTAssertFalse(
+            monitor.shouldClaim(),
+            "nothing to control: holding the role only costs MediaRemote broadcasts"
+        )
+
+        monitor.noteConsumerSeen(sources: 2)
+        XCTAssertTrue(monitor.shouldClaim(), "a media tab appeared — take the keys back")
+    }
+
+    func testAutoPolicyClaimsWhenTheConsumerReportsNoCountAtAll() {
+        let (monitor, _) = makeMonitor(.auto)
+        // An extension older than the source gate never sends `sources`.
+        // "Unknown" must behave like the old always-claim, not like zero.
+        monitor.noteConsumerSeen(sources: nil)
+        XCTAssertTrue(monitor.shouldClaim())
+    }
+
+    func testAReportWithoutACountDoesNotEraseAKnownOne() {
+        let (monitor, _) = makeMonitor(.auto)
+        monitor.noteConsumerSeen(sources: 0)
+        XCTAssertFalse(monitor.shouldClaim())
+        // A bare /events request (the welcome page probing, say) must not be
+        // read as "the browser now has sources".
+        monitor.noteConsumerSeen()
+        XCTAssertFalse(monitor.shouldClaim())
+    }
+
+    func testTheSourceGateStillHonoursTheConsumerWindow() {
+        let (monitor, _) = makeMonitor(.auto)
+        monitor.noteConsumerSeen(sources: 3)
+        let stale = Date().addingTimeInterval(MediaKeyMonitor.consumerWindow + 1)
+        XCTAssertFalse(monitor.shouldClaim(now: stale), "sources do not outlive the consumer")
+    }
+
+    func testOwnPolicyIgnoresTheSourceGate() {
+        let (monitor, _) = makeMonitor(.own)
+        monitor.noteConsumerSeen(sources: 0)
+        XCTAssertTrue(monitor.shouldClaim(), "`own` is the escape hatch: always the keys")
+    }
+
+    func testDroppingToZeroSourcesReleasesTheClaim() {
+        let (monitor, claimer) = makeMonitor(.auto)
+        let t0 = Date()
+
+        monitor.noteConsumerSeen(sources: 1)
+        monitor.refreshClaim(now: t0)
+        XCTAssertTrue(monitor.mediaKeysActive)
+        XCTAssertEqual(claimer.calls, ["claim"])
+
+        // The last media tab closes: hand the keys back rather than keep
+        // re-asserting a role nothing is using.
+        monitor.noteConsumerSeen(sources: 0)
+        monitor.refreshClaim(now: t0)
+        XCTAssertFalse(monitor.mediaKeysActive)
+        XCTAssertEqual(claimer.calls, ["claim", "release"])
+
+        // And no heartbeat afterwards, however long the bridge idles.
+        monitor.noteConsumerSeen(sources: 0)
+        monitor.refreshClaim(now: t0.addingTimeInterval(MediaKeyMonitor.idleReassertInterval * 4))
+        XCTAssertEqual(claimer.calls, ["claim", "release"], "no broadcasts while idle")
+    }
+
     // MARK: - Claim state machine (drives the claimer)
 
     func testMonitorStartsUnclaimed() {

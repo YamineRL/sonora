@@ -158,20 +158,27 @@ public enum BridgeProtocol {
     /// Parses the `/events` query string: `since` (cursor, default 0, never
     /// negative) and `wait` (long-poll seconds, default 0, clamped to
     /// `maxEventsWait`). Unparseable values fall back to the defaults.
-    public static func parseEventsQuery(_ path: String) -> (since: Int, wait: Int) {
-        guard let question = path.firstIndex(of: "?") else { return (0, 0) }
+    public static func parseEventsQuery(_ path: String)
+        -> (since: Int, wait: Int, sources: Int?)
+    {
+        guard let question = path.firstIndex(of: "?") else { return (0, 0, nil) }
         var since = 0
         var wait = 0
+        // `nil` means the consumer did not say. An extension older than the
+        // source gate does not send it, and must keep the keys working, so
+        // "did not say" has to stay distinguishable from "said zero".
+        var sources: Int?
         for pair in path[path.index(after: question)...].split(separator: "&") {
             let parts = pair.split(separator: "=", maxSplits: 1)
             guard parts.count == 2, let value = Int(parts[1]) else { continue }
             switch parts[0] {
             case "since": since = max(0, value)
             case "wait": wait = min(max(0, value), maxEventsWait)
+            case "sources": sources = max(0, value)
             default: break
             }
         }
-        return (since, wait)
+        return (since, wait, sources)
     }
 
     /// Builds the complete HTTP/1.1 response for `GET /debug`: recent log lines
