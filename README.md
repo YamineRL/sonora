@@ -14,7 +14,7 @@
 <p align="center">
   <a href="https://github.com/YamineRL/sonora/releases/latest"><img alt="Download" src="https://img.shields.io/badge/Download-.dmg-2ea44f?style=for-the-badge"></a>
   <img alt="macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-black?style=for-the-badge&logo=apple">
-  <img alt="Apple silicon &amp; Intel" src="https://img.shields.io/badge/Apple%20silicon%20%26%20Intel-supported-black?style=for-the-badge">
+  <img alt="Apple silicon" src="https://img.shields.io/badge/Apple%20silicon-supported-black?style=for-the-badge">
 </p>
 
 <p align="center">
@@ -84,20 +84,50 @@ media cockpit** — a Chrome extension that finds every audible tab (YouTube,
 podcasts, web radio) and gives you one set of controls for all of them, with
 your headset battery on the same card.
 
-👉 **[Get Sonora on the Chrome Web Store — free](https://chromewebstore.google.com/)** *(listing link lands here at launch)*
-
 It is free, and its source is in this repository under
-**[`sonora-extension/`](sonora-extension/)**. To build it yourself:
+**[`sonora-extension/`](sonora-extension/)**.
 
-```bash
-cd sonora-extension
-npm install
-npm run build       # -> dist/
-```
+### Install the extension
 
-Then load it in Chrome: `chrome://extensions` → **Developer mode** → **Load
-unpacked** → pick `sonora-extension/dist/`. The details — watch mode, the
-typecheck and smoke gates, how the popup talks to the bridge — are in
+It is not on the Chrome Web Store yet, so you install it from source. This
+works in Chrome, Brave, Edge, or any other Chromium browser. You need
+**[Node.js](https://nodejs.org) 18 or newer**; the build takes a few seconds.
+
+1. **Get the code.** Either clone it:
+
+   ```bash
+   git clone https://github.com/YamineRL/sonora.git
+   ```
+
+   or download the ZIP from the green **Code** button at the top of this page
+   and unzip it.
+
+2. **Build the extension.**
+
+   ```bash
+   cd sonora/sonora-extension
+   npm install
+   npm run build       # -> dist/
+   ```
+
+3. **Load it.** Open `chrome://extensions` (`brave://extensions` on Brave),
+   turn on **Developer mode**, click **Load unpacked**, and pick the
+   `sonora-extension/dist` folder — the `dist` folder itself, not the one
+   above it.
+
+4. **Pin it.** Click the puzzle-piece icon in the toolbar and pin Sonora, so
+   the cockpit is one click away. Open a tab that plays something and the
+   popup will list it.
+
+Two things worth knowing about extensions loaded this way. Your browser will
+show a "developer mode extensions" warning on startup — that is the browser
+telling you the extension did not come from a store, not a problem with
+Sonora. And the extension keeps reading from the folder you picked, so don't
+delete or move it; if you rebuild it (`npm run build`), hit the reload arrow
+on its card in `chrome://extensions` afterwards.
+
+Watch mode, the typecheck and smoke gates, and how the popup talks to the
+bridge are documented in
 **[sonora-extension/README.md](sonora-extension/README.md)**.
 
 The extension works on its own; the bridge is what adds the battery. Neither
