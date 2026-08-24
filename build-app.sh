@@ -21,6 +21,9 @@ chmod +x "$APP/Contents/MacOS/HeadsetCompanion"
 mkdir -p "$APP/Contents/Resources"
 cp install-launch-agent.sh "$APP/Contents/Resources/install-launch-agent.sh"
 chmod +x "$APP/Contents/Resources/install-launch-agent.sh"
+# Finder, the DMG, Login Items and System Settings all read this. It is
+# committed rather than built here; see icon/README.md to regenerate it.
+cp icon/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 
 echo ""
 echo "Built: $(pwd)/$APP"

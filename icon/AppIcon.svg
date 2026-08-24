@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <title>HeadsetCompanion</title>
+  <defs>
+    <linearGradient id="shell" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1f1c2d"/>
+      <stop offset="1" stop-color="#12111b"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Shell. Full-bleed on purpose, and a plain rounded rect rather than a
+       superellipse: see README.md, macOS 26 sets a legacy icon on a grey
+       plaque unless the artwork reaches the edges of the canvas. The 230
+       radius is Apple's usual 22.5% of the side. -->
+  <rect fill="url(#shell)" x="0" y="0" width="1024" height="1024" rx="230"/>
+
+  <!-- Mark: headphones over a five-step battery gauge — the app's own
+       menu-bar item — in Sonora lime. -->
+  <g fill="#d5f36b">
+    <path fill="none" stroke="#d5f36b" stroke-width="124" stroke-linecap="round"
+          d="M 201 487 A 311 311 0 0 1 823 487"/>
+    <rect x="111" y="452" width="181" height="433" rx="90"/>
+    <rect x="733" y="452" width="181" height="433" rx="90"/>
+    <circle cx="378" cy="698" r="31"/>
+    <circle cx="445" cy="698" r="31"/>
+    <circle cx="512" cy="698" r="31"/>
+    <circle cx="579" cy="698" r="31"/>
+    <circle cx="646" cy="698" r="31"/>
+  </g>
+</svg>
