@@ -1,0 +1,3 @@
+# Puts a "Sponsor" button on the repository page, pointing at the same PayPal
+# donate link the README badge and the project site use.
+custom: ["https://www.paypal.com/donate/?hosted_button_id=H8XWE3HUPKCME"]

@@ -15,6 +15,7 @@
   <a href="https://github.com/YamineRL/sonora/releases/latest"><img alt="Download" src="https://img.shields.io/badge/Download-.dmg-2ea44f?style=for-the-badge"></a>
   <img alt="macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-black?style=for-the-badge&logo=apple">
   <img alt="Apple silicon" src="https://img.shields.io/badge/Apple%20silicon-supported-black?style=for-the-badge">
+  <a href="https://www.paypal.com/donate/?hosted_button_id=H8XWE3HUPKCME"><img alt="Donate with PayPal" src="https://img.shields.io/badge/Donate-PayPal-fe7d37?style=for-the-badge&logo=paypal&logoColor=white"></a>
 </p>
 
 <p align="center">
