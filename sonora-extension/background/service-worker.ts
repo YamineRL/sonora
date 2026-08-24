@@ -405,6 +405,12 @@ const isBridgeApp = (app: unknown): boolean =>
   typeof app === "string" && BRIDGE_APP_NAMES.includes(app);
 const BRIDGE_EVENTS_URL = "http://127.0.0.1:8745/events";
 const BRIDGE_WAIT_S = 25;
+/**
+ * Seconds a held next/previous on the headset moves the playhead. Its own
+ * constant, not the popup's 15 s skip: a blind gesture you cannot see the
+ * result of wants a smaller, more forgiving step.
+ */
+const HEADSET_SEEK_STEP = 10;
 
 interface BridgeEvent {
   seq: number;
@@ -442,6 +448,15 @@ async function handleMediaKey(type: string): Promise<void> {
     case "play-pause":
       await sendCommand(commandTarget(sources).tabId, { type: "toggle" });
       break;
+    // Literal, not a toggle: the bridge only ever sends these when macOS
+    // steers the now-playing app (a Bluetooth route teardown above all), so
+    // "pause" must never be able to start playback.
+    case "play":
+      await sendCommand(commandTarget(sources).tabId, { type: "play" });
+      break;
+    case "pause":
+      await sendCommand(commandTarget(sources).tabId, { type: "pause" });
+      break;
     case "stop":
       await sendCommand(commandTarget(sources).tabId, { type: "pause" });
       break;
@@ -450,6 +465,19 @@ async function handleMediaKey(type: string): Promise<void> {
       break;
     case "previous":
       await stepSource(sources, -1);
+      break;
+    // A held next/previous: seek the active source instead of switching it.
+    case "seek-forward":
+      await sendCommand(commandTarget(sources).tabId, {
+        type: "skip",
+        by: HEADSET_SEEK_STEP,
+      });
+      break;
+    case "seek-backward":
+      await sendCommand(commandTarget(sources).tabId, {
+        type: "skip",
+        by: -HEADSET_SEEK_STEP,
+      });
       break;
   }
 }

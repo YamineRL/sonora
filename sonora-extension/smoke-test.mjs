@@ -77,6 +77,11 @@ const checks = {
   "empty state explains the window": html.includes("paused players"),
   "sink routing select": html.includes("Route to"),
   "media-key loop survives a bridge restart": readFileSync(path.join(root, "dist/background/service-worker.js"), "utf8").includes("restarted") || readFileSync(path.join(root, "background/service-worker.ts"), "utf8").includes("The bridge restarted"),
+  // held next/previous on the headset -> a 10 s skip on the active source
+  "headset seek events map to a 10s skip":
+    readFileSync(path.join(root, "dist/background/service-worker.js"), "utf8").includes("seek-forward") &&
+    readFileSync(path.join(root, "dist/background/service-worker.js"), "utf8").includes("seek-backward") &&
+    readFileSync(path.join(root, "background/service-worker.ts"), "utf8").includes("HEADSET_SEEK_STEP = 10"),
   "reveal-device-names button in bundle": bundle.includes("Reveal device names"),
   "icons ship in the bundle": [16, 32, 48, 128].every((n) =>
     existsSync(path.join(root, `dist/icons/icon-${n}.png`))),

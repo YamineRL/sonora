@@ -148,6 +148,7 @@ first run adopts the bridge's current sequence.
 | --- | --- |
 | `play-pause` | toggle the active source |
 | `next` / `previous` | switch to the next / previous source (wraps) |
+| `seek-forward` / `seek-backward` | skip the active source ±10 s (held next/previous on the headset) |
 | `stop` | pause the active source |
 
 No extra macOS permission is needed: the bridge receives the commands as

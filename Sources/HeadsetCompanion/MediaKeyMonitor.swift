@@ -4,7 +4,8 @@ import MediaPlayer
 /// One captured media-key event (headset touch panel or keyboard F-keys).
 ///
 /// Serialized by the `/events` endpoint; `type` is one of
-/// `"play-pause"`, `"next"`, `"previous"`, `"stop"`.
+/// `"play-pause"`, `"next"`, `"previous"`, `"stop"`,
+/// `"seek-forward"`, `"seek-backward"`.
 public struct MediaKeyEvent: Codable, Sendable, Equatable {
     public let seq: Int
     public let type: String
@@ -111,11 +112,12 @@ public final class MediaKeyMonitor: ObservableObject, MediaKeyEventSource {
     public static let reassertInterval: TimeInterval = 2
     /// How long the fast cadence lasts after a real media-key press.
     public static let fastWindow: TimeInterval = 10
-    /// Re-assert cadence once idle. Deliberately slow: at 2 s the claim
-    /// generated ~5,700 unified-log events a minute and re-arbitrated the
-    /// shared audio route against the connected headset 30 times a minute,
-    /// which stalls anything touching CoreAudio (browsers above all).
-    public static let idleReassertInterval: TimeInterval = 45
+    /// Re-assert cadence once idle. A compromise, and the knob to turn if
+    /// either symptom comes back: at 2 s the claim generated ~5,700
+    /// unified-log events a minute and re-arbitrated the shared audio route
+    /// 30 times a minute; too slow and the headset buttons go dead for that
+    /// long every time a browser tab starts playing and takes the role.
+    public static let idleReassertInterval: TimeInterval = 15
 
     private let claimer: NowPlayingClaiming
     private var reassertTimer: Timer?
@@ -159,21 +161,57 @@ public final class MediaKeyMonitor: ObservableObject, MediaKeyEventSource {
     }
 
     /// Maps an `MPRemoteCommandCenter` command to a Sonora event type (pure,
-    /// testable). Play and pause both fold into `play-pause`: the headset
-    /// sends whichever one it thinks matches its idea of our state, and to
-    /// Sonora a touch-panel tap is one toggle either way.
+    /// testable).
+    ///
+    /// Only `togglePlayPause` is a toggle. `play` and `pause` are passed
+    /// through literally, because they do not come from the headset at all —
+    /// they come from macOS.
+    ///
+    /// This used to fold all three into `play-pause`, on the assumption that
+    /// the touch panel sent whichever one matched its idea of our state. It
+    /// does not: across 70 logged commands the panel sent `togglePlayPause`
+    /// 13 times, `play` zero times, and every one of the 16 `pause` commands
+    /// came from the system. The worst of them arrives when the Bluetooth
+    /// audio route is torn down — macOS pauses the now-playing app so sound
+    /// does not jump to the speakers, we turned that into a toggle, and a
+    /// video the user had deliberately paused started playing out loud:
+    ///
+    ///     [09:19:59] [media-keys] received pause ... -> play-pause
+    ///     [09:19:59] [bridge] system readings: []      <- headset powered off
+    ///
+    /// A literal `pause` is idempotent, so the same command is now correct
+    /// whether or not anything was playing.
     public static func eventType(forCommand command: RemoteCommand) -> String {
         switch command {
-        case .togglePlayPause, .play, .pause: return "play-pause"
+        case .togglePlayPause: return "play-pause"
+        case .play: return "play"
+        case .pause: return "pause"
         case .next: return "next"
         case .previous: return "previous"
         case .stop: return "stop"
+        case .seekForward: return "seek-forward"
+        case .seekBackward: return "seek-backward"
+        }
+    }
+
+    /// Whether a command represents someone actually pressing something, as
+    /// opposed to macOS steering the now-playing app. Only the former opens
+    /// the fast re-assert window.
+    public static func isUserInteraction(_ command: RemoteCommand) -> Bool {
+        switch command {
+        case .play, .pause: return false
+        case .togglePlayPause, .next, .previous, .stop: return true
+        case .seekForward, .seekBackward: return true
         }
     }
 
     /// The MediaRemote commands the bridge handles.
     public enum RemoteCommand: String, Sendable, CaseIterable {
         case togglePlayPause, play, pause, next, previous, stop
+        /// AVRCP fast-forward / rewind: the headset's *held* next/previous
+        /// gesture (swipe-and-hold on the XM4 touch panel). Delivered as
+        /// `MPSeekCommandEvent`s, begin and end; only the begin is recorded.
+        case seekForward, seekBackward
     }
 
     // MARK: - Lifecycle
@@ -242,9 +280,14 @@ public final class MediaKeyMonitor: ObservableObject, MediaKeyEventSource {
     ///
     /// Called from the MediaRemote command handlers; also the seam the tests
     /// record through.
-    public func record(type: String, at now: Date = Date()) {
+    /// `interaction` is false for commands macOS sends us on its own (see
+    /// `eventType(forCommand:)`): those must not open the forced re-claim
+    /// window. A system `pause` arrives exactly as the Bluetooth route is
+    /// being torn down, and 10 s of forced now-playing toggles is the one
+    /// thing guaranteed to make that teardown stall.
+    public func record(type: String, at now: Date = Date(), interaction: Bool = true) {
         condition.lock()
-        lastInteractionAt = now
+        if interaction { lastInteractionAt = now }
         sequence += 1
         let event = MediaKeyEvent(seq: sequence, type: type, at: Self.iso.string(from: Date()))
         events.append(event)
@@ -294,8 +337,17 @@ public final class MediaKeyMonitor: ObservableObject, MediaKeyEventSource {
                 setClaiming(true)
                 BridgeLog.log("[media-keys] claimed now-playing — Sonora owns the media keys "
                     + "(policy=\(policy.rawValue))")
-            } else if let force = reassertDue(now: now) {
-                claimer.claim(force: force)
+            } else if reassertDue(now: now) != nil {
+                // Always forced. An unforced re-publish does not take the role
+                // back from a browser that is actively playing — only the
+                // paused→playing toggle does. Making the idle heartbeat
+                // unforced deadlocked the keys: Brave took the role, so Sonora
+                // received no commands, so the fast (forced) window never
+                // opened, so it never took the role back. Zero next/previous
+                // reached the bridge in the 8 h that shipped. Cost is bounded
+                // by the cadence instead: 4 claims/min idle, against the 30 a
+                // 2 s forced cadence was doing when it stalled the machine.
+                claimer.claim(force: true)
                 noteClaimed(at: now)
             }
         } else if held {
@@ -333,7 +385,12 @@ public final class MediaKeyMonitor: ObservableObject, MediaKeyEventSource {
     // MARK: - MediaRemote
 
     /// Registers a handler for every command Sonora understands and disables
-    /// the rest, so macOS never offers seek/skip/rating controls for us.
+    /// the rest, so macOS never offers skip/rating controls for us.
+    ///
+    /// The seek pair is registered separately: it arrives as
+    /// `MPSeekCommandEvent`s in `.beginSeeking` / `.endSeeking` pairs, and a
+    /// held gesture must produce exactly one Sonora event, so only the begin
+    /// is recorded.
     private func registerCommands() {
         let center = MPRemoteCommandCenter.shared()
         let handled: [(MPRemoteCommand, RemoteCommand)] = [
@@ -351,9 +408,20 @@ public final class MediaKeyMonitor: ObservableObject, MediaKeyEventSource {
                 return .success
             }
         }
+        let seeks: [(MPRemoteCommand, RemoteCommand)] = [
+            (center.seekForwardCommand, .seekForward),
+            (center.seekBackwardCommand, .seekBackward),
+        ]
+        for (command, kind) in seeks {
+            command.isEnabled = true
+            command.addTarget { [weak self] event in
+                guard let seek = event as? MPSeekCommandEvent,
+                      seek.type == .beginSeeking else { return .success }
+                self?.handle(command: kind)
+                return .success
+            }
+        }
         let unhandled: [MPRemoteCommand] = [
-            center.seekForwardCommand,
-            center.seekBackwardCommand,
             center.skipForwardCommand,
             center.skipBackwardCommand,
             center.changePlaybackPositionCommand,
@@ -372,7 +440,7 @@ public final class MediaKeyMonitor: ObservableObject, MediaKeyEventSource {
 
     private func handle(command: RemoteCommand) {
         let type = Self.eventType(forCommand: command)
-        record(type: type)
+        record(type: type, interaction: Self.isUserInteraction(command))
         BridgeLog.log("[media-keys] received \(command.rawValue) from MediaRemote "
             + "→ \(type) (policy=\(policy.rawValue))")
     }

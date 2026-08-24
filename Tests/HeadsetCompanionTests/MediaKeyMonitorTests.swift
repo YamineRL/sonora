@@ -39,16 +39,56 @@ final class MediaKeyMonitorTests: XCTestCase {
 
     func testEventTypeForEachCommand() {
         XCTAssertEqual(MediaKeyMonitor.eventType(forCommand: .togglePlayPause), "play-pause")
-        XCTAssertEqual(MediaKeyMonitor.eventType(forCommand: .play), "play-pause")
-        XCTAssertEqual(MediaKeyMonitor.eventType(forCommand: .pause), "play-pause")
+        XCTAssertEqual(MediaKeyMonitor.eventType(forCommand: .play), "play")
+        XCTAssertEqual(MediaKeyMonitor.eventType(forCommand: .pause), "pause")
         XCTAssertEqual(MediaKeyMonitor.eventType(forCommand: .next), "next")
         XCTAssertEqual(MediaKeyMonitor.eventType(forCommand: .previous), "previous")
         XCTAssertEqual(MediaKeyMonitor.eventType(forCommand: .stop), "stop")
+        XCTAssertEqual(MediaKeyMonitor.eventType(forCommand: .seekForward), "seek-forward")
+        XCTAssertEqual(MediaKeyMonitor.eventType(forCommand: .seekBackward), "seek-backward")
+    }
+
+    /// Regression: macOS pauses the now-playing app when the Bluetooth audio
+    /// route is torn down. Folding that into the toggle resumed a video the
+    /// user had paused, out loud, on the built-in speakers.
+    func testASystemPauseIsNeverAToggle() {
+        XCTAssertNotEqual(
+            MediaKeyMonitor.eventType(forCommand: .pause), "play-pause",
+            "a pause from macOS must not be able to start playback"
+        )
+    }
+
+    /// Only a real press should open the forced re-claim window: a system
+    /// pause arrives mid route-teardown, when hammering the now-playing
+    /// claim is exactly what stalls the machine.
+    func testOnlyPressesCountAsInteraction() {
+        XCTAssertFalse(MediaKeyMonitor.isUserInteraction(.play))
+        XCTAssertFalse(MediaKeyMonitor.isUserInteraction(.pause))
+        for command in [
+            MediaKeyMonitor.RemoteCommand.togglePlayPause, .next, .previous, .stop,
+            .seekForward, .seekBackward,
+        ] {
+            XCTAssertTrue(MediaKeyMonitor.isUserInteraction(command), "\(command.rawValue)")
+        }
+    }
+
+    func testANonInteractionRecordDoesNotOpenTheFastWindow() {
+        let claimer = SpyClaimer()
+        let monitor = MediaKeyMonitor(policy: .own, claimer: claimer)
+        let start = Date()
+        monitor.refreshClaim(now: start)          // first claim, forced
+        monitor.record(type: "pause", at: start, interaction: false)
+        // Still the idle cadence, so nothing is due 2 s later.
+        XCTAssertNil(monitor.reassertDue(now: start.addingTimeInterval(2)))
+        XCTAssertEqual(monitor.reassertDue(now: start.addingTimeInterval(46)), false)
     }
 
     func testEveryHandledCommandMapsToAContractType() {
-        // The /events contract only ever carries these four type strings.
-        let allowed: Set<String> = ["play-pause", "next", "previous", "stop"]
+        // The /events contract only ever carries these type strings.
+        let allowed: Set<String> = [
+            "play-pause", "play", "pause", "next", "previous", "stop",
+            "seek-forward", "seek-backward",
+        ]
         for command in MediaKeyMonitor.RemoteCommand.allCases {
             XCTAssertTrue(
                 allowed.contains(MediaKeyMonitor.eventType(forCommand: command)),
@@ -214,13 +254,19 @@ final class MediaKeyMonitorTests: XCTestCase {
 
         // Refreshes below the idle cadence are free.
         monitor.refreshClaim(now: t0.addingTimeInterval(2))
-        monitor.refreshClaim(now: t0.addingTimeInterval(30))
+        monitor.refreshClaim(now: t0.addingTimeInterval(
+            MediaKeyMonitor.idleReassertInterval - 1))
         XCTAssertEqual(claimer.claims, 1)
 
-        // Past the idle cadence: one unforced heartbeat.
+        // Past the idle cadence: another claim, and it must be forced.
         monitor.refreshClaim(now: t0.addingTimeInterval(MediaKeyMonitor.idleReassertInterval))
         XCTAssertEqual(claimer.claims, 2)
-        XCTAssertEqual(claimer.forced, [true, false], "the idle heartbeat must not toggle")
+        XCTAssertEqual(
+            claimer.forced, [true, true],
+            "the idle heartbeat must toggle: an unforced re-publish never takes "
+            + "the role back from a browser that is playing, so the keys stayed "
+            + "with Brave and zero next/previous reached the bridge for 8 h"
+        )
         XCTAssertEqual(claimer.releases, 0)
     }
 

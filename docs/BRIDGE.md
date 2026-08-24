@@ -228,11 +228,16 @@ registers `MPRemoteCommandCenter` handlers and records what arrives.
 | `nextTrack`        | `next`        |
 | `previousTrack`    | `previous`    |
 | `stop`             | `stop`        |
+| `seekForward` / `seekBackward` | `seek-forward` / `seek-backward` |
 
 Play and pause both fold into `play-pause`: the headset sends whichever one
 matches its idea of our state, and to Sonora a tap is one toggle either way.
-Every other command (seek, skip, rating, like, shuffle, …) is explicitly
-disabled, so macOS never offers those controls for the bridge.
+`seekForward` / `seekBackward` are AVRCP fast-forward / rewind: the *held*
+next/previous gesture (swipe-and-hold on the XM4 touch panel). They arrive as
+`MPSeekCommandEvent`s in begin/end pairs and only the begin is recorded, so
+one gesture is one event; the extension turns it into a ±10 s skip. Every
+other command (skip, rating, like, shuffle, …) is explicitly disabled, so
+macOS never offers those controls for the bridge.
 
 **Owning the keys = being the now-playing app.** MediaRemote routes commands
 to exactly one app: the most recent one to assert now-playing. To take the
@@ -321,8 +326,8 @@ on them.
   is the only prompt macOS shows.
 - The bridge never taps input events: it only receives the MediaRemote
   commands macOS hands the now-playing app, and records play-pause / next /
-  previous / stop. It cannot see typed text, and the event buffer is in
-  memory only (last 256, never written to disk).
+  previous / stop / seek-forward / seek-backward. It cannot see typed text,
+  and the event buffer is in memory only (last 256, never written to disk).
 - `system_profiler` is a read-only system call; no data is written anywhere
   except the local log file. No network calls, no telemetry, no third-party
   dependencies.
