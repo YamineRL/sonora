@@ -1,8 +1,8 @@
 <h1 align="center">Sonora — HeadsetCompanion</h1>
 
 <p align="center">
-  <b>The buttons on your headset control the tab you're actually listening to.</b><br>
-  <sub>Tap to pause it, swipe to move between audible tabs, swipe and hold to jump ten seconds — and read any headset's battery in the menu bar. A 500 KB macOS app, free and open source. No account, no cloud, no telemetry.</sub>
+  <b>Swipe your headset to jump between every browser tab that's playing.</b><br>
+  <sub>Forward and back move through the tabs making noise; hold to jump ten seconds; tap to pause the one you're actually hearing. Plus any headset's battery in the menu bar. A 500 KB macOS app, free and open source. No account, no cloud, no telemetry.</sub>
 </p>
 
 <p align="center"><a href="https://yaminerl.github.io/sonora/"><strong>sonora on the web →</strong></a></p>
@@ -25,17 +25,20 @@
 
 ## The problem
 
-**Your headset's buttons go to the wrong thing.** You are listening to a video
-in a background tab, you tap the earcup to pause it, and something else pauses
-— or nothing does. macOS delivers those commands to whichever app most
-recently claimed to be "now playing", which is rarely the tab you mean and is
-often not the browser at all. Skip lands somewhere arbitrary. Seek is not
-offered to you at all.
+**You cannot get from one playing tab to the next.** Three tabs are making
+noise — a video, a podcast, a stream you opened on Tuesday — and moving
+between them means going back to the machine: find the window, find the tab
+with the little speaker on it, click. Your headset has a skip button an inch
+from your finger and it is useless for this, because "next track" is a
+message to *one* app, and that app is whichever one macOS last called "now
+playing". Inside a tab it just plays that site's next video.
 
-HeadsetCompanion takes that role and hands the commands to Sonora, so the
-gestures act on the tab you are actually hearing: **tap** to play or pause it,
-**swipe** forward or back to move between audible tabs, **swipe and hold** to
-jump ten seconds either way.
+HeadsetCompanion takes the "now playing" role and hands the commands to
+Sonora, so your earcup drives the browser: **swipe** forward or back to move
+to the next or previous tab that's playing — it starts, the one you left
+pauses — **swipe and hold** to jump ten seconds either way, and **tap** to
+pause the tab you are actually hearing rather than whatever else grabbed the
+keys.
 
 **And the battery is hidden.** macOS knows your headset's battery level. It
 just refuses to *show* it anywhere
@@ -52,7 +55,7 @@ headset battery at all**.
 
 | | |
 |---|---|
-| **Your headset drives the browser** | Tap plays or pauses the tab you're listening to. Swipe forward or back moves to the next or previous audible tab. Swipe and hold jumps ±10 s. The app claims the media keys back from whatever grabbed them, and re-claims them when a tab steals the role. |
+| **Swipe between playing tabs** | Forward and back step through every audible tab, starting the next and pausing the one you left. Hold to jump ±10 s; tap to pause the one you're hearing. The app claims the media keys back from whatever grabbed them, and re-claims them when a tab steals the role. |
 | **Battery at a glance** | Five green dots (the default), or a tiny percentage, right under a headphones glyph. One menu-bar slot — narrower than the clock. |
 | **Actually current** | Re-reads the level from a fresh process, which is the only way to dodge the per-process cache that makes other tools (and macOS itself) report yesterday's number. |
 | **Any headset** | Sony, Bose, AirPods, Jabra, Anker, the €19 pair from the airport. Nothing in the app names a model: it reads whatever the system Bluetooth stack reports, with a BLE Battery Service fallback. |
