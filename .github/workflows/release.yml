@@ -22,10 +22,34 @@ jobs:
       # for every future release without anyone editing the extension.
       - name: Add stable-named copy
         run: cp dist/HeadsetCompanion-*.dmg dist/HeadsetCompanion.dmg
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # The extension ships as a loadable folder, so people can install it
+      # without a toolchain: unzip, then Load unpacked. Gated on the same
+      # typecheck and smoke run as local development — `npm run smoke`
+      # rebuilds dist/ first, so what is zipped is what was just tested.
+      - name: Build and test the extension
+        working-directory: sonora-extension
+        run: |
+          npm ci
+          npm run typecheck
+          npm run smoke
+      # Zipped from inside dist/, so manifest.json sits at the root of the
+      # unzipped folder — that folder is what Load unpacked expects.
+      - name: Package the extension
+        run: |
+          VERSION="$(node -p "require('./sonora-extension/manifest.json').version")"
+          cd sonora-extension/dist
+          zip -qr "$GITHUB_WORKSPACE/dist/sonora-extension-$VERSION.zip" .
+          cp "$GITHUB_WORKSPACE/dist/sonora-extension-$VERSION.zip" \
+             "$GITHUB_WORKSPACE/dist/sonora-extension.zip"
+
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" dist/*.dmg \
+          gh release create "${GITHUB_REF_NAME}" dist/*.dmg dist/*.zip \
             --title "HeadsetCompanion ${GITHUB_REF_NAME#v}" \
             --generate-notes

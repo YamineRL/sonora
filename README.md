@@ -89,42 +89,49 @@ It is free, and its source is in this repository under
 
 ### Install the extension
 
-It is not on the Chrome Web Store yet, so you install it from source. This
-works in Chrome, Brave, Edge, or any other Chromium browser. You need
-**[Node.js](https://nodejs.org) 18 or newer**; the build takes a few seconds.
+It is not on the Chrome Web Store yet, so it installs as an unpacked
+extension. Works in Chrome, Brave, Edge, or any other Chromium browser. No
+toolchain needed — the zip below is already built.
 
-1. **Get the code.** Either clone it:
+1. **Download
+   [`sonora-extension.zip`](https://github.com/YamineRL/sonora/releases/latest/download/sonora-extension.zip)**
+   from the latest release, and unzip it. Put the folder somewhere it can
+   stay — the browser reads the extension from that folder every time it
+   starts, so it can't be a temporary spot.
 
-   ```bash
-   git clone https://github.com/YamineRL/sonora.git
-   ```
+2. **Load it.** Open `chrome://extensions` (`brave://extensions` on Brave),
+   turn on **Developer mode**, click **Load unpacked**, and pick the folder
+   you just unzipped — the one with `manifest.json` directly inside it.
 
-   or download the ZIP from the green **Code** button at the top of this page
-   and unzip it.
-
-2. **Build the extension.**
-
-   ```bash
-   cd sonora/sonora-extension
-   npm install
-   npm run build       # -> dist/
-   ```
-
-3. **Load it.** Open `chrome://extensions` (`brave://extensions` on Brave),
-   turn on **Developer mode**, click **Load unpacked**, and pick the
-   `sonora-extension/dist` folder — the `dist` folder itself, not the one
-   above it.
-
-4. **Pin it.** Click the puzzle-piece icon in the toolbar and pin Sonora, so
+3. **Pin it.** Click the puzzle-piece icon in the toolbar and pin Sonora, so
    the cockpit is one click away. Open a tab that plays something and the
    popup will list it.
 
-Two things worth knowing about extensions loaded this way. Your browser will
-show a "developer mode extensions" warning on startup — that is the browser
-telling you the extension did not come from a store, not a problem with
-Sonora. And the extension keeps reading from the folder you picked, so don't
-delete or move it; if you rebuild it (`npm run build`), hit the reload arrow
-on its card in `chrome://extensions` afterwards.
+Your browser will show a "developer mode extensions" warning on startup. That
+is the browser saying the extension did not come from a store — not a problem
+with Sonora.
+
+<details>
+<summary>Or build it from source</summary>
+
+Needs **[Node.js](https://nodejs.org) 18 or newer**. Clone the repository, or
+download
+[main.zip](https://github.com/YamineRL/sonora/archive/refs/heads/main.zip)
+and unzip it:
+
+```bash
+git clone https://github.com/YamineRL/sonora.git
+cd sonora/sonora-extension
+npm install
+npm run build       # -> dist/
+```
+
+Then **Load unpacked** and pick `sonora-extension/dist`. After any rebuild,
+hit the reload arrow on the extension's card — an unpacked extension keeps
+running the files it was loaded with, and swapping them underneath it
+silently breaks the content scripts in tabs that are already open.
+
+</details>
 
 Watch mode, the typecheck and smoke gates, and how the popup talks to the
 bridge are documented in
