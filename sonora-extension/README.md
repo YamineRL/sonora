@@ -90,9 +90,17 @@ appears only when no source is controlled.
 
 ### One signal at a time
 
-Matching the cockpit model, selecting a source pauses the previous
-source and starts the new one — the browser becomes a single focused
-signal you switch between, not a pile of playing tabs.
+Matching the cockpit model, selecting a source pauses *every* other
+source that is still running and starts the new one — the browser becomes
+a single focused signal you switch between, not a pile of playing tabs.
+Every running source, not just the one the cockpit last controlled: a tab
+you started from the page itself was never the cockpit's active source,
+and pausing only the remembered one left it playing under the new pick.
+The pauses are awaited before the new source starts, so the invariant
+holds even when a tab is slow to answer.
+
+With no source controlled yet, `next`/`previous` count from the tab you
+can actually hear rather than from the top of the list.
 
 ## Keyboard shortcuts
 

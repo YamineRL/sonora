@@ -14,7 +14,12 @@ import {
   type Envelope,
   type PlaybackCommand,
 } from "../shared/messages";
-import { toSource, type MediaSource, type MediaState } from "../shared/media-source";
+import {
+  sourcesToPause,
+  toSource,
+  type MediaSource,
+  type MediaState,
+} from "../shared/media-source";
 import {
   DEFAULT_SETTINGS,
   loadActiveTabId,
@@ -29,6 +34,13 @@ import {
 } from "../shared/storage";
 
 const PING_TIMEOUT_MS = 400;
+/**
+ * Cap on a playback command. `chrome.tabs.sendMessage` reports a missing
+ * receiver, but a tab that is still loading can leave the callback parked,
+ * and `setActive` now waits for its pauses before it starts the new
+ * source — an unanswered pause must not hold the switch open.
+ */
+const COMMAND_TIMEOUT_MS = 1000;
 /**
  * Tabs that reported a media element, kept for as long as they keep
  * reporting one. Chrome clears `tab.audible` the instant playback pauses,
@@ -130,18 +142,26 @@ async function tabsSend<T>(
   payload?: unknown,
 ): Promise<T | null> {
   return new Promise((resolve) => {
+    let done = false;
+    const finish = (value: T | null) => {
+      if (!done) {
+        done = true;
+        resolve(value);
+      }
+    };
     try {
       chrome.tabs.sendMessage(tabId, envelope(type, payload), (response: unknown) => {
         if (chrome.runtime.lastError) {
-          resolve(null);
+          finish(null);
           return;
         }
         const r = response as { app?: string; ok?: boolean; data?: T } | undefined;
-        resolve(r && r.app === APP && r.ok ? (r.data ?? null) : null);
+        finish(r && r.app === APP && r.ok ? (r.data ?? null) : null);
       });
     } catch {
-      resolve(null);
+      finish(null);
     }
+    setTimeout(() => finish(null), COMMAND_TIMEOUT_MS);
   });
 }
 
@@ -221,18 +241,33 @@ async function sendCommand(
 
 /**
  * Mark a tab as the controlled source. Matches the cockpit's model:
- * one signal at a time — the previous source is paused, the new one
- * starts playing.
+ * one signal at a time — every other running source is paused, the new
+ * one starts playing.
+ *
+ * `known` is a source list the caller already collected this round (the
+ * step/media-key path has one), so the switch does not pay for a second
+ * ping round just to learn what is playing.
  */
-async function setActive(tabId: number | null): Promise<MediaSource | null> {
+async function setActive(
+  tabId: number | null,
+  known?: MediaSource[],
+): Promise<MediaSource | null> {
   await ensureLoaded();
   const previous = activeTabId;
   activeTabId = tabId;
   await saveActiveTabId(tabId);
 
-  if (previous && previous !== tabId) {
-    void sendCommand(previous, { type: "pause" });
-  }
+  // Awaited, not fired and forgotten: "one signal at a time" only holds if
+  // the old signals are really down before the new one starts. Pausing just
+  // the remembered `previous` was the bug — a tab playing without ever
+  // having been the cockpit's active source kept going under the new pick.
+  const running = known ?? (await collectSources());
+  await Promise.all(
+    sourcesToPause(running, tabId, previous).map((id) =>
+      sendCommand(id, { type: "pause" }),
+    ),
+  );
+
   if (tabId) {
     // Play, then apply the personal defaults so a new signal starts at the
     // cockpit's preferred level. Sequential on purpose: a volume command
@@ -275,9 +310,23 @@ function commandTarget(sources: MediaSource[]): MediaSource {
 async function stepSource(sources: MediaSource[], step: number): Promise<void> {
   if (sources.length < 2) return;
   const ordered = [...sources].sort((a, b) => a.tabId - b.tabId);
-  const idx = ordered.findIndex((s) => s.tabId === activeTabId);
-  const from = idx < 0 ? 0 : idx;
-  await setActive(ordered[(from + step + ordered.length) % ordered.length].tabId);
+  await setActive(
+    ordered[(stepAnchor(ordered) + step + ordered.length) % ordered.length].tabId,
+    sources,
+  );
+}
+
+/**
+ * Where a step counts from. The controlled source normally, but when the
+ * cockpit has none (nothing selected yet, or its tab is gone) the tab you
+ * can actually hear is the one you mean to step away from — counting from
+ * the top of the list instead sent "next" backwards past it.
+ */
+function stepAnchor(ordered: MediaSource[]): number {
+  const active = ordered.findIndex((s) => s.tabId === activeTabId);
+  if (active >= 0) return active;
+  const playing = ordered.findIndex((s) => s.playing);
+  return playing >= 0 ? playing : 0;
 }
 
 /**

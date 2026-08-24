@@ -173,27 +173,24 @@ export function SonoraCockpit() {
   const selectSource = useCallback(
     (tabId: number) => {
       userPicked.current = true;
-      const current = state;
-      const prev = current?.sources.find((s) => s.tabId === current.activeTabId);
       setState((cur) =>
         cur
           ? {
               ...cur,
               activeTabId: tabId,
-              sources: cur.sources.map((s) =>
-                s.tabId === tabId
-                  ? { ...s, playing: true }
-                  : prev && s.tabId === prev.tabId
-                    ? { ...s, playing: false }
-                    : s,
-              ),
+              // One signal at a time: the background pauses every other
+              // running source, not just the one that was controlled, so
+              // the optimistic list must clear them all — otherwise a tab
+              // that started playing on its own keeps its equalizer until
+              // the refresh lands.
+              sources: cur.sources.map((s) => ({ ...s, playing: s.tabId === tabId })),
             }
           : cur,
       );
       void sendToBackground<MediaSource>(MessageType.SetActive, { tabId });
       window.setTimeout(() => void refresh(), 700);
     },
-    [state],
+    [refresh],
   );
 
   const seekBy = useCallback(

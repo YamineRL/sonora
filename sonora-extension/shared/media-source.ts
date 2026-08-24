@@ -56,6 +56,28 @@ export function sourceRowState(source: Pick<MediaSource, "playing" | "tabMuted">
   return source.playing ? "playing" : "paused";
 }
 
+/**
+ * Tab ids to pause when `next` becomes the controlled source.
+ *
+ * Every source still running, not just the one the cockpit remembers:
+ * a tab you started from the page itself (or one left over from a
+ * previous worker lifetime) was never the cockpit's active source, so
+ * pausing only `previous` left it playing alongside the new pick — two
+ * signals at once, which the cockpit model forbids. `previous` is still
+ * included even when it reads as paused: its state may be a poll behind.
+ */
+export function sourcesToPause(
+  sources: Pick<MediaSource, "tabId" | "playing">[],
+  next: number | null,
+  previous: number | null,
+): number[] {
+  const ids = new Set<number>();
+  for (const source of sources) if (source.playing) ids.add(source.tabId);
+  if (previous !== null) ids.add(previous);
+  if (next !== null) ids.delete(next);
+  return [...ids];
+}
+
 /* ------------------------------------------------------------------ */
 /* Kind + identity heuristics                                          */
 /* ------------------------------------------------------------------ */

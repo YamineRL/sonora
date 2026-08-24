@@ -32,7 +32,7 @@ const shared = await esbuild.build({
 });
 const sharedModule = { exports: {} };
 new Function("module", "exports", shared.outputFiles[0].text)(sharedModule, sharedModule.exports);
-const { detectKind, siteDisplay, sourceRowState } = sharedModule.exports;
+const { detectKind, siteDisplay, sourceRowState, sourcesToPause } = sharedModule.exports;
 
 const errors = [];
 window.addEventListener("error", (e) => errors.push(String(e.error ?? e.message)));
@@ -74,6 +74,28 @@ const checks = {
   "paused rows show a paused mark": sourceRowState({ playing: false, tabMuted: false }) === "paused",
   "tab-muted rows show a muted mark": sourceRowState({ playing: false, tabMuted: true }) === "muted",
   "tab mute beats a running element": sourceRowState({ playing: true, tabMuted: true }) === "muted",
+  // One signal at a time. Pausing only the remembered source left a tab
+  // that started playing on its own running under the new pick — two tabs
+  // audible at once after "next".
+  "switching pauses the remembered source":
+    JSON.stringify(sourcesToPause([{ tabId: 1, playing: false }, { tabId: 2, playing: false }], 2, 1)) === "[1]",
+  "switching pauses a source the cockpit never selected":
+    JSON.stringify(sourcesToPause([{ tabId: 1, playing: true }, { tabId: 2, playing: false }], 2, null)) === "[1]",
+  "switching pauses every running source":
+    JSON.stringify(sourcesToPause([{ tabId: 1, playing: true }, { tabId: 2, playing: true }, { tabId: 3, playing: false }], 3, null)) === "[1,2]",
+  "the new source is never paused":
+    JSON.stringify(sourcesToPause([{ tabId: 1, playing: true }, { tabId: 2, playing: true }], 1, 1)) === "[2]",
+  "a paused list with no previous pauses nothing":
+    JSON.stringify(sourcesToPause([{ tabId: 1, playing: false }], 1, null)) === "[]",
+  "clearing the source pauses everything running":
+    JSON.stringify(sourcesToPause([{ tabId: 1, playing: true }, { tabId: 2, playing: false }], null, 2)) === "[1,2]",
+  // ...and the switch waits for those pauses instead of firing and forgetting
+  // (source-only: the worker bundle is minified, so the name is gone there)
+  "the switch waits for the pauses before playing":
+    readFileSync(path.join(root, "background/service-worker.ts"), "utf8").includes("await Promise.all(\n    sourcesToPause("),
+  // "next" with nothing selected steps away from the tab you can hear
+  "a step with no controlled source counts from what is playing":
+    readFileSync(path.join(root, "background/service-worker.ts"), "utf8").includes("function stepAnchor"),
   "empty state explains the window": html.includes("paused players"),
   "sink routing select": html.includes("Route to"),
   "media-key loop survives a bridge restart": readFileSync(path.join(root, "dist/background/service-worker.js"), "utf8").includes("restarted") || readFileSync(path.join(root, "background/service-worker.ts"), "utf8").includes("The bridge restarted"),
