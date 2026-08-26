@@ -116,6 +116,19 @@ final class StatusItemController {
 
     private var appearanceObservation: NSKeyValueObservation?
 
+    /// Everything the button's image and tooltip are derived from, as of the
+    /// last time `relabel()` actually drew.
+    private struct RenderedLabel: Equatable {
+        let plan: MenuBarLabelPlan
+        let battery: Int?
+        let style: BatteryStyle
+        let appearance: NSAppearance.Name?
+        let outputName: String?
+        let headsetName: String?
+    }
+
+    private var lastRendered: RenderedLabel?
+
     private var style: BatteryStyle {
         BatteryStyle(rawValue: UserDefaults.standard.string(forKey: BatteryStyle.key) ?? "") ?? .fallback
     }
@@ -133,7 +146,6 @@ final class StatusItemController {
     /// dots) — and is redrawn when the bar's appearance changes.
     private func relabel() {
         guard let button = item.button else { return }
-        button.attributedTitle = NSAttributedString(string: "")
         let device = defaultOutputDevice
         let plan = MenuBarLabelPlan.forOutput(
             transportType: device?.transportType,
@@ -141,6 +153,26 @@ final class StatusItemController {
             battery: monitor.battery,
             connected: monitor.connected
         )
+        // Nothing below this moved, so the button already shows the right
+        // thing — and writing to it anyway is worse than wasted work. Setting
+        // `image` makes AppKit redraw the item's replicant on a second menu
+        // bar; that redraw calls `setAppearance:` on the snapshot view, which
+        // fires the `effectiveAppearance` KVO above, which calls back in here.
+        // Unguarded that is an unbounded loop, and it pins a core for as long
+        // as two displays are attached. Keyed on the appearance *name*, which
+        // is what separates aqua from darkAqua: a repaint the name cannot see
+        // is a cosmetic miss, a permanently spinning main thread is not.
+        let rendered = RenderedLabel(
+            plan: plan,
+            battery: monitor.battery,
+            style: style,
+            appearance: button.effectiveAppearance.name,
+            outputName: device?.name,
+            headsetName: monitor.deviceName
+        )
+        guard rendered != lastRendered else { return }
+        lastRendered = rendered
+        button.attributedTitle = NSAttributedString(string: "")
         guard device != nil || plan.showsBattery else {
             // Nothing to say about the output yet: the plain system symbol,
             // sized by the status bar itself, exactly as before.
