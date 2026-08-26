@@ -230,8 +230,20 @@ enum UpdateInstaller {
     static func replace(bundleAt bundleURL: URL, withAppIn dmg: URL) throws {
         let fm = FileManager.default
         let mount = fm.temporaryDirectory.appendingPathComponent("hc-update-\(ProcessInfo.processInfo.processIdentifier)")
-        try run("/usr/bin/hdiutil", ["attach", dmg.path, "-nobrowse", "-readonly", "-noautoopen", "-mountpoint", mount.path])
-        defer { _ = try? run("/usr/bin/hdiutil", ["detach", mount.path, "-force"]) }
+        let attached = try output("/usr/bin/hdiutil",
+                                  ["attach", dmg.path, "-nobrowse", "-readonly", "-noautoopen", "-mountpoint", mount.path])
+        // Detaching by mount point loses a race with whatever still holds the
+        // freshly mounted volume: hdiutil unmounts it, then fails "Resource
+        // busy" (16) with the device still attached and no mount point left to
+        // name it by, so every later attempt fails too and the image is
+        // orphaned for the rest of the session. The device node outlives the
+        // unmount, so detach that instead.
+        let device = attached
+            .split(whereSeparator: \.isNewline)
+            .compactMap { $0.split(whereSeparator: \.isWhitespace).first }
+            .first { $0.hasPrefix("/dev/") }
+            .map(String.init) ?? mount.path
+        defer { _ = try? run("/usr/bin/hdiutil", ["detach", device, "-force"]) }
 
         guard let app = try fm.contentsOfDirectory(at: mount, includingPropertiesForKeys: nil)
             .first(where: { $0.pathExtension == "app" }) else { throw UpdateError.noAppInDMG }
@@ -265,6 +277,25 @@ enum UpdateInstaller {
         p.arguments = ["-c", "sleep 1; /usr/bin/open -n \"$0\"", bundleURL.path]
         try? p.run()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { exit(0) }
+    }
+
+    /// Like `run`, but hands back what the tool wrote to stdout.
+    static func output(_ tool: String, _ args: [String]) throws -> String {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: tool)
+        p.arguments = args
+        let pipe = Pipe()
+        p.standardOutput = pipe
+        p.standardError = FileHandle.nullDevice
+        try p.run()
+        // Drain before waiting: a tool that outruns the pipe buffer would
+        // otherwise block forever on a write nobody is reading.
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        p.waitUntilExit()
+        guard p.terminationStatus == 0 else {
+            throw UpdateError.tool((tool as NSString).lastPathComponent, p.terminationStatus)
+        }
+        return String(decoding: data, as: UTF8.self)
     }
 
     @discardableResult
