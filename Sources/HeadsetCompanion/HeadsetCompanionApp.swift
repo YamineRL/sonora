@@ -19,6 +19,10 @@ struct HeadsetCompanionApp: App {
     private let startedAt: Date
     private let statusItem: StatusItemController
     private let updater: Updater
+    /// Owned here, not by the status item: the `⌘,` scene shows the same
+    /// switch, and two `LoginItem`s would each hold their own idea of a
+    /// state that actually lives in System Settings.
+    private let loginItem = LoginItem()
 
     init() {
         let started = Date()
@@ -43,7 +47,10 @@ struct HeadsetCompanionApp: App {
         self.server = server
         let updater = Updater()
         self.updater = updater
-        statusItem = StatusItemController(monitor: monitor, audio: audio, mediaKeys: mediaKeys, updater: updater)
+        statusItem = StatusItemController(
+            monitor: monitor, audio: audio, mediaKeys: mediaKeys, updater: updater,
+            loginItem: loginItem
+        )
         updater.start()
         // The App init runs exactly once per process launch, so the server
         // is started exactly once here.
@@ -57,9 +64,20 @@ struct HeadsetCompanionApp: App {
     var body: some Scene {
         // The status item is plain AppKit (`StatusItemController`): SwiftUI's
         // `MenuBarExtra` label silently drops any `Image(nsImage:)`, which
-        // rules out the battery dots. The only SwiftUI scene is an unused
-        // Settings window (the app is LSUIElement; it has no main window).
-        Settings { EmptyView() }
+        // rules out the battery dots. `Settings` is the only scene this app
+        // declares (it is LSUIElement and has no main window) — and macOS
+        // wires that scene to the Settings menu item and `⌘,` whether or not
+        // it holds anything, so it has to hold the real panel. An
+        // `EmptyView()` here is a blank window titled "HeadsetCompanion
+        // Settings" that the user can open by accident and learn nothing
+        // from.
+        Settings {
+            SettingsView(
+                updater: updater,
+                loginItem: loginItem,
+                mediaKeyStateText: mediaKeys.stateText
+            )
+        }
     }
 }
 
@@ -77,14 +95,18 @@ final class StatusItemController {
     private let audio: AudioOutputController
     private let mediaKeys: MediaKeyMonitor
     private let updater: Updater
-    private let loginItem = LoginItem()
+    private let loginItem: LoginItem
     private var cancellables = Set<AnyCancellable>()
 
-    init(monitor: BatteryMonitor, audio: AudioOutputController, mediaKeys: MediaKeyMonitor, updater: Updater) {
+    init(
+        monitor: BatteryMonitor, audio: AudioOutputController, mediaKeys: MediaKeyMonitor,
+        updater: Updater, loginItem: LoginItem
+    ) {
         self.monitor = monitor
         self.audio = audio
         self.mediaKeys = mediaKeys
         self.updater = updater
+        self.loginItem = loginItem
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         item.button?.target = self
         item.button?.action = #selector(toggle)
@@ -204,6 +226,13 @@ final class StatusItemController {
     /// it has to activate itself for the window to come forward.
     func showSettings() {
         popover.performClose(nil)
+        // The `Settings` scene is the same panel `⌘,` opens, so route here
+        // too and the two cannot end up as two windows of the same thing.
+        // AppKit dispatches this action for the Settings menu item; it
+        // reports whether anything handled it, and the hand-built window
+        // below stays as the answer for when nothing does.
+        NSApp.activate(ignoringOtherApps: true)
+        if NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil) { return }
         if let window = settingsWindow {
             NSApp.activate(ignoringOtherApps: true)
             window.makeKeyAndOrderFront(nil)
@@ -258,10 +287,7 @@ final class StatusItemController {
     /// Who MediaRemote currently routes the media keys to: Sonora while the
     /// now-playing claim is held, otherwise whatever app holds it (typically
     /// the browser). `passive` never claims.
-    private var mediaKeyStateText: String {
-        if mediaKeys.policy == .passive { return "passive" }
-        return mediaKeys.isActive ? "Sonora" : "browser"
-    }
+    private var mediaKeyStateText: String { mediaKeys.stateText }
 }
 
 // MARK: - Menu bar battery style

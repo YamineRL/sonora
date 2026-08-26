@@ -106,6 +106,15 @@ public protocol NowPlayingClaiming: AnyObject {
 /// `MediaKeyPolicy`. No Accessibility permission is involved.
 public final class MediaKeyMonitor: ObservableObject, MediaKeyEventSource {
 
+    /// Which app MediaRemote routes headset and F7-F9 taps to right now, as
+    /// the Settings panel words it. Lives here rather than in the panel
+    /// because two callers now ask (the menu bar's own window and the `⌘,`
+    /// scene) and they must not be able to word it differently.
+    public var stateText: String {
+        if policy == .passive { return "passive" }
+        return isActive ? "Sonora" : "browser"
+    }
+
     /// True while the bridge holds the now-playing claim (main-thread mirror
     /// of `mediaKeysActive`, for the menu-bar UI).
     @Published public private(set) var isActive = false
