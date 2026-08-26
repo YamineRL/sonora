@@ -78,6 +78,67 @@ export function sourcesToPause(
   return [...ids];
 }
 
+/**
+ * The explicit command a play-pause gesture on `target` resolves to.
+ *
+ * The worker knows the target's state from the ping round it just ran, so
+ * a headset tap can be sent as an idempotent `play` or `pause` instead of
+ * a `toggle`. A toggle is the one command that must arrive *exactly* once:
+ * delivered twice (a resent message, a replayed bridge event), the second
+ * undoes the first, and one tap pauses the video only to resume it a
+ * moment later.
+ */
+export function resolvedToggle(target: Pick<MediaSource, "playing">): "play" | "pause" {
+  return target.playing ? "pause" : "play";
+}
+
+/** The subset of HTMLMediaElement the controlled-element pick reads. */
+export interface MediaElementLike {
+  paused: boolean;
+  readyState: number;
+  muted: boolean;
+  currentSrc?: string;
+  src?: string;
+  isConnected: boolean;
+}
+
+/**
+ * Pick the element the cockpit controls, keeping the pick stable across
+ * calls.
+ *
+ * Pages routinely carry several media elements (ad slots, hidden
+ * preloaders, autoplay previews), and the pick decides where every command
+ * lands, so the rules are ranked by evidence of user intent:
+ *
+ *   1. An *unmuted* playing element wins. The autoplay policy only lets
+ *      muted playback start without a gesture, so unmuted playback means
+ *      the user started it in the page — the cockpit has to follow that
+ *      switch, or "pause" keeps landing on a player the user abandoned.
+ *   2. Otherwise a remembered pick still in the document, and still
+ *      looking like a real player (a source, or media loaded), is kept.
+ *      This is what holds the pick on the paused main video while a muted
+ *      sidebar preview autoplays under the mouse: letting any playing
+ *      element win here paused the preview, reported it as the video, and
+ *      left the real video unresumable from the headset.
+ *   3. With no usable history: any playing element (first contact with a
+ *      page already playing, muted or not), then the first element with a
+ *      source, then the first element at all.
+ */
+export function pickControlled<T extends MediaElementLike>(
+  all: T[],
+  current: T | null,
+): T | null {
+  const playing = all.find((m) => !m.paused && m.readyState > 0);
+  if (playing && !playing.muted) return playing;
+  if (
+    current?.isConnected &&
+    (!!(current.currentSrc || current.src) || current.readyState > 0)
+  ) {
+    return current;
+  }
+  return playing ?? all.find((m) => !!(m.currentSrc || m.src)) ?? all[0] ?? null;
+}
+
 /* ------------------------------------------------------------------ */
 /* Kind + identity heuristics                                          */
 /* ------------------------------------------------------------------ */

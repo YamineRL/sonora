@@ -368,7 +368,11 @@ export function SonoraCockpit() {
     volumeLocal ?? (activeSource ? Math.round(activeSource.volume * 100) : settings?.volume ?? 0);
 
   const filteredSources = sources.filter((source) =>
-    `${source.siteName} ${source.title}`.toLowerCase().includes(search.toLowerCase()),
+    // The artist joins the haystack now that it is on the row: a channel
+    // name you can read is a channel name you will try to search for.
+    `${source.siteName} ${source.title} ${source.artist ?? ""}`
+      .toLowerCase()
+      .includes(search.toLowerCase()),
   );
   const waveHeights = [22, 42, 30, 63, 36, 76, 51, 29, 88, 48, 36, 68, 28, 58, 39, 74, 46, 23, 61, 34, 84, 42, 27, 65, 45, 74, 32];
 
@@ -570,9 +574,18 @@ export function SonoraCockpit() {
               <span className={`sp-source-logo ${source.kind}`}>
                 <SourceIcon source={source} size={14} />
               </span>
+              {/*
+                The logo to the left already says which site this is, so the
+                strong line spends itself on what actually tells two sources
+                apart — the video or episode title. The site name stays as the
+                subtitle for sources that publish no artist, so a row never
+                loses its origin entirely. Both lines truncate in CSS rather
+                than by slicing: a hard cut mid-word with no ellipsis reads as
+                a broken title rather than a shortened one.
+              */}
               <span className="sp-source-info">
-                <span className="sp-source-name">{source.siteName}</span>
-                <span className="sp-source-meta">{source.artist ?? source.title.slice(0, 38)}</span>
+                <span className="sp-source-name">{source.title}</span>
+                <span className="sp-source-meta">{source.artist ?? source.siteName}</span>
               </span>
               <SourceRowMark state={sourceRowState(source)} />
             </button>
@@ -723,9 +736,9 @@ export function SonoraCockpit() {
                   }}
                 >
                   <SourceIcon source={source} size={14} />
-                  <span>
-                    {source.siteName}{" "}
-                    <span className="sp-command-detail">· {source.artist ?? source.title.slice(0, 32)}</span>
+                  <span className="sp-command-text">
+                    {source.title}{" "}
+                    <span className="sp-command-detail">· {source.artist ?? source.siteName}</span>
                   </span>
                   {source.tabId === activeSource?.tabId && <span className="sp-command-active">Active</span>}
                 </button>

@@ -8,24 +8,34 @@
  */
 
 import { APP, MessageType, envelope, respond, type Envelope, type PlaybackCommand } from "../shared/messages";
-import { detectKind, siteDisplay, type MediaState } from "../shared/media-source";
+import { detectKind, pickControlled, siteDisplay, type MediaState } from "../shared/media-source";
 
 const g = globalThis as Record<string, unknown>;
 
+/** The element the cockpit currently controls; see `pickControlled`. */
+let controlled: HTMLMediaElement | null = null;
+
 /**
- * Pick the element the cockpit controls. Pages routinely carry several
- * media elements (ad slots, hidden preloaders, autoplay previews), so
- * prefer the one that is actually playing, then one that has a real
- * source, and only then fall back to the first in the document.
+ * Pick the element the cockpit controls. The pick has to be *stable*:
+ * pause and play must keep landing on the same element even after it stops
+ * playing, so the choice is remembered and only revised when the element
+ * leaves the DOM, stops being a real player, or the user audibly starts a
+ * different one. The selection rules live in `pickControlled` (shared, so
+ * they are testable without a DOM).
+ *
+ * Deliberately also run — and remembered — on pure reads (`buildState` on
+ * a ping): the state the cockpit reports and the element its commands land
+ * on must be the same thing, and pings are how a page's player is adopted
+ * in the first place. The rules are deterministic on the DOM, so a read
+ * can only re-point the pick where the next command would have pointed it
+ * anyway.
  */
 function findMedia(): HTMLMediaElement | null {
-  const all = Array.from(document.querySelectorAll<HTMLMediaElement>("audio, video"));
-  if (all.length === 0) return null;
-  return (
-    all.find((m) => !m.paused && m.readyState > 0) ??
-    all.find((m) => !!(m.currentSrc || m.src)) ??
-    all[0]
+  controlled = pickControlled(
+    Array.from(document.querySelectorAll<HTMLMediaElement>("audio, video")),
+    controlled,
   );
+  return controlled;
 }
 
 function metaContent(name: string): string | null {
@@ -96,18 +106,30 @@ function buildState(): MediaState {
 /* Playback commands                                                   */
 /* ------------------------------------------------------------------ */
 
+/**
+ * `play()` rejects when the page's autoplay policy refuses a start with no
+ * user gesture in the tab. Swallowing that silently made a failed play
+ * indistinguishable from a working one; the state that follows the command
+ * still reports the truth (paused), but the *reason* should be somewhere a
+ * debugging session can find it.
+ */
+function playRefused(err: unknown): undefined {
+  console.warn("[sonora] play() refused:", err);
+  return undefined;
+}
+
 async function applyCommand(command: PlaybackCommand): Promise<void> {
   const media = findMedia();
   switch (command.type) {
     case "play":
-      if (media) await media.play().catch(() => undefined);
+      if (media) await media.play().catch(playRefused);
       break;
     case "pause":
       media?.pause();
       break;
     case "toggle":
       if (!media) break;
-      if (media.paused) await media.play().catch(() => undefined);
+      if (media.paused) await media.play().catch(playRefused);
       else media.pause();
       break;
     case "seek": {

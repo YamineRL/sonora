@@ -32,7 +32,12 @@ const shared = await esbuild.build({
 });
 const sharedModule = { exports: {} };
 new Function("module", "exports", shared.outputFiles[0].text)(sharedModule, sharedModule.exports);
-const { detectKind, siteDisplay, sourceRowState, sourcesToPause } = sharedModule.exports;
+const { detectKind, siteDisplay, sourceRowState, sourcesToPause, pickControlled, resolvedToggle } =
+  sharedModule.exports;
+
+// Fake media elements for the controlled-element pick: plain objects carrying
+// exactly the fields `pickControlled` reads off an HTMLMediaElement.
+const el = (over) => ({ paused: true, readyState: 2, muted: false, currentSrc: "", src: "", isConnected: true, ...over });
 
 const errors = [];
 window.addEventListener("error", (e) => errors.push(String(e.error ?? e.message)));
@@ -133,6 +138,76 @@ const checks = {
   "welcome page links the dmg": readFileSync(path.join(root, "dist/popup/welcome.html"), "utf8").includes("https://github.com/YamineRL/sonora/releases/latest/download/HeadsetCompanion.dmg"),
   "welcome tab opens only on a fresh install": readFileSync(path.join(root, "dist/background/service-worker.js"), "utf8").includes("popup/welcome.html") && readFileSync(path.join(root, "background/service-worker.ts"), "utf8").includes('details.reason === "install"'),
   "permission page stops the mic tracks": readFileSync(path.join(root, "dist/popup/permission.js"), "utf8").includes("stop()"),
+  // The controlled element must be stable: pausing the real video and then
+  // re-deriving the pick from scratch landed on a different element (the
+  // first with a src), so the next pause hit the wrong thing and a later
+  // play started the wrong one while the main video stayed paused.
+  "with no history a playing element wins the pick": (() => {
+    const preloader = el({ src: "ad.mp4" });
+    const main = el({ paused: false, currentSrc: "video.mp4" });
+    return pickControlled([preloader, main], null) === main;
+  })(),
+  // First contact keeps adopting even a muted player — with no history it
+  // is still the best guess for what the page is doing.
+  "with no history even a muted playing element is adopted": (() => {
+    const preview = el({ paused: false, muted: true, src: "preview.mp4" });
+    return pickControlled([preview], null) === preview;
+  })(),
+  "a paused pick is kept while it stays in the DOM": (() => {
+    const preloader = el({ src: "ad.mp4" });
+    const main = el({ currentSrc: "video.mp4" });
+    return pickControlled([preloader, main], main) === main;
+  })(),
+  // The decisive case: the cockpit paused the main video, then a muted
+  // sidebar preview autoplayed under the mouse. Letting "playing" win here
+  // paused the preview, reported it as the video, and left the real video
+  // unresumable from the headset.
+  "a muted autoplaying preview never steals the pick": (() => {
+    const preview = el({ paused: false, muted: true, src: "preview.mp4" });
+    const main = el({ currentSrc: "video.mp4" });
+    return pickControlled([preview, main], main) === main;
+  })(),
+  // Unmuted playback cannot start without a gesture, so it means the user
+  // switched players in the page — the cockpit follows.
+  "an unmuted playing element takes the pick over the remembered one": (() => {
+    const other = el({ paused: false, currentSrc: "other.mp4" });
+    const main = el({ currentSrc: "video.mp4" });
+    return pickControlled([other, main], main) === other;
+  })(),
+  "a src-less remembered pick yields to a playing element": (() => {
+    const husk = el({ readyState: 0 });
+    const preview = el({ paused: false, muted: true, src: "preview.mp4" });
+    return pickControlled([preview], husk) === preview;
+  })(),
+  "a pick that left the DOM is re-resolved": (() => {
+    const gone = el({ currentSrc: "video.mp4", isConnected: false });
+    const next = el({ src: "next.mp4" });
+    return pickControlled([next], gone) === next;
+  })(),
+  "with no history the first element with a src decides": (() => {
+    const bare = el({});
+    const withSrc = el({ src: "video.mp4" });
+    return pickControlled([bare, withSrc], null) === withSrc;
+  })(),
+  "an empty page picks nothing": pickControlled([], null) === null,
+  // A headset tap resolves to an explicit, idempotent command in the worker:
+  // a raw `toggle` delivered twice (a resent message, a replayed bridge
+  // event) cancels itself out — one tap paused the video and resumed it.
+  "a tap on a playing target resolves to pause": resolvedToggle({ playing: true }) === "pause",
+  "a tap on a paused target resolves to play": resolvedToggle({ playing: false }) === "play",
+  "the media-key tap never sends a raw toggle":
+    readFileSync(path.join(root, "background/service-worker.ts"), "utf8").includes("resolvedToggle(target)") &&
+    !readFileSync(path.join(root, "background/service-worker.ts"), "utf8").includes('sendCommand(commandTarget(sources).tabId, { type: "toggle" })'),
+  // ...and a command is only ever resent when it provably never arrived.
+  // Resending after a mere response timeout ran the command twice on a
+  // slow tab, which is exactly a doubled toggle.
+  "a command is never resent after a timeout":
+    readFileSync(path.join(root, "background/service-worker.ts"), "utf8").includes('first.failure === "no-receiver"') &&
+    readFileSync(path.join(root, "dist/background/service-worker.js"), "utf8").includes("no-receiver"),
+  // A replayed bridge event is a duplicate tap, so the cursor is persisted
+  // before the event is acted on, not after.
+  "a bridge event is consumed before it is acted on":
+    readFileSync(path.join(root, "background/service-worker.ts"), "utf8").includes("await saveBridgeSeq(since);\n        await handleMediaKey(event.type);"),
   // "podcast." is a label prefix, not a suffix
   "podcast label prefix matches": detectKind("podcast.example.com", false) === "podcast",
   "podcast label prefix is not a substring": detectKind("notapodcast.com", false) === "other",

@@ -15,6 +15,7 @@ import {
   type PlaybackCommand,
 } from "../shared/messages";
 import {
+  resolvedToggle,
   sourcesToPause,
   toSource,
   type MediaSource,
@@ -136,32 +137,47 @@ async function ensureContentScript(tabId: number): Promise<boolean> {
   }
 }
 
+/**
+ * Why `tabsSend` came back without a state. `no-receiver` means Chrome
+ * reported no listener in the tab: the command was never delivered, so
+ * injecting the content script and resending is safe. `timeout` means the
+ * tab *has* the message and simply has not answered inside the cap (a
+ * busy or throttled renderer) — the command may well have executed, so a
+ * resend would run it twice.
+ */
+type TabSendFailure = "no-receiver" | "timeout";
+
+interface TabSendResult<T> {
+  state: T | null;
+  failure: TabSendFailure | null;
+}
+
 async function tabsSend<T>(
   tabId: number,
   type: string,
   payload?: unknown,
-): Promise<T | null> {
+): Promise<TabSendResult<T>> {
   return new Promise((resolve) => {
     let done = false;
-    const finish = (value: T | null) => {
+    const finish = (state: T | null, failure: TabSendFailure | null = null) => {
       if (!done) {
         done = true;
-        resolve(value);
+        resolve({ state, failure });
       }
     };
     try {
       chrome.tabs.sendMessage(tabId, envelope(type, payload), (response: unknown) => {
         if (chrome.runtime.lastError) {
-          finish(null);
+          finish(null, "no-receiver");
           return;
         }
         const r = response as { app?: string; ok?: boolean; data?: T } | undefined;
         finish(r && r.app === APP && r.ok ? (r.data ?? null) : null);
       });
     } catch {
-      finish(null);
+      finish(null, "no-receiver");
     }
-    setTimeout(() => finish(null), COMMAND_TIMEOUT_MS);
+    setTimeout(() => finish(null, "timeout"), COMMAND_TIMEOUT_MS);
   });
 }
 
@@ -226,9 +242,16 @@ async function sendCommand(
   command: PlaybackCommand,
 ): Promise<MediaState | null> {
   await ensureLoaded();
-  let state = await tabsSend<MediaState>(tabId, MessageType.Command, command);
-  if (!state && (await ensureContentScript(tabId))) {
-    state = await tabsSend<MediaState>(tabId, MessageType.Command, command);
+  const first = await tabsSend<MediaState>(tabId, MessageType.Command, command);
+  let state = first.state;
+  // Resend only when the command provably never arrived. A timeout is the
+  // opposite case: the tab executed (or is still executing) the command and
+  // is slow to answer, so resending would run it twice — for the
+  // non-idempotent commands (`toggle`, `skip`) the duplicate undoes or
+  // doubles the first, which is how one headset tap paused a video and
+  // resumed it a second later.
+  if (!state && first.failure === "no-receiver" && (await ensureContentScript(tabId))) {
+    state = (await tabsSend<MediaState>(tabId, MessageType.Command, command)).state;
   }
   if (state) {
     rememberState(tabId, state);
@@ -423,7 +446,10 @@ chrome.commands.onCommand.addListener(async (command: string) => {
   if (sources.length === 0) return;
 
   if (command === "toggle-playback") {
-    await sendCommand(commandTarget(sources).tabId, { type: "toggle" });
+    // Resolved to an explicit play/pause, same as the headset tap: see
+    // handleMediaKey("play-pause").
+    const target = commandTarget(sources);
+    await sendCommand(target.tabId, { type: resolvedToggle(target) });
   } else if (command === "switch-source") {
     await stepSource(sources, 1);
   }
@@ -526,9 +552,17 @@ async function handleMediaKey(type: string): Promise<void> {
   const sources = commandTargets(await collectSources());
   if (sources.length === 0) return;
   switch (type) {
-    case "play-pause":
-      await sendCommand(commandTarget(sources).tabId, { type: "toggle" });
+    case "play-pause": {
+      // Resolved against the state the ping round just reported, not sent
+      // as a `toggle`. An explicit play/pause is idempotent, so a duplicate
+      // delivery (a resent message, a replayed bridge event after a worker
+      // death) cannot cancel itself out — with a raw toggle the second
+      // delivery undid the first, and one tap paused the video only to
+      // resume it a moment later.
+      const target = commandTarget(sources);
+      await sendCommand(target.tabId, { type: resolvedToggle(target) });
       break;
+    }
     // Literal, not a toggle: the bridge only ever sends these when macOS
     // steers the now-playing app (a Bluetooth route teardown above all), so
     // "pause" must never be able to start playback.
@@ -597,6 +631,11 @@ async function mediaKeyLoop(): Promise<void> {
       for (const event of data.events ?? []) {
         if (event.seq <= since) continue;
         since = event.seq;
+        // Consume before acting: a worker killed mid-command would
+        // otherwise wake up and replay the event, and a replayed `next`
+        // double-steps. A tap lost to that same death is the cheaper
+        // failure — you just tap again.
+        await saveBridgeSeq(since);
         await handleMediaKey(event.type);
       }
       if (typeof data.seq === "number" && data.seq > since) since = data.seq;
