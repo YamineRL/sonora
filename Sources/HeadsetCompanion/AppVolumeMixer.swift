@@ -131,12 +131,14 @@ public final class AppVolumeMixer: ObservableObject {
     public init() {
         // Push: process objects appearing and leaving.
         addSystemListener(Self.processObjectList) { [weak self] in
-            Task { @MainActor in self?.refresh() }
+            guard let self else { return }
+            Task { @MainActor in self.refresh() }
         }
         // And a slow poll: `piro` transitions on a live object don't change
         // the list itself, and the HAL occasionally misses one entirely.
         pollTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.refresh() }
+            guard let self else { return }
+            Task { @MainActor in self.refresh() }
         }
         // Unmute everything we muted before exiting — a `pimt` write outlives
         // this process (it lives on the target's process object), so quitting
@@ -243,8 +245,8 @@ public final class AppVolumeMixer: ObservableObject {
             return
         }
         SystemAudioPermission.requestAccess { [weak self] granted in
+            guard let self else { return }
             Task { @MainActor in
-                guard let self else { return }
                 self.systemAudioAccess = granted ? .authorized : .denied
                 self.reconcile()
             }
@@ -614,7 +616,8 @@ public final class AppVolumeMixer: ObservableObject {
         for object in current.subtracting(observedObjects) {
             addListener(object: object,
                         address: Self.address(Self.processIsRunningOutput)) { [weak self] in
-                Task { @MainActor in self?.refresh() }
+                guard let self else { return }
+                Task { @MainActor in self.refresh() }
             }
         }
         for object in observedObjects.subtracting(current) {
