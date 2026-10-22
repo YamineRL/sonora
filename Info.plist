@@ -22,6 +22,8 @@
 	<string>13.0</string>
 	<key>LSUIElement</key>
 	<true/>
+	<key>NSAudioCaptureUsageDescription</key>
+	<string>HeadsetCompanion captures each app's audio so the app volume slider can adjust that app.</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>HeadsetCompanion connects to your Bluetooth headset to read its battery level.</string>
 	<key>NSHighResolutionCapable</key>

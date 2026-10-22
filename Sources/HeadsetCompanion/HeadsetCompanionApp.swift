@@ -15,6 +15,7 @@ struct HeadsetCompanionApp: App {
     @StateObject private var monitor: BatteryMonitor
     @StateObject private var mediaKeys: MediaKeyMonitor
     @StateObject private var audio: AudioOutputController
+    @StateObject private var mixer: AppVolumeMixer
     private let server: BridgeServer
     private let startedAt: Date
     private let statusItem: StatusItemController
@@ -33,6 +34,8 @@ struct HeadsetCompanionApp: App {
         let audio = AudioOutputController()
         audio.onDefaultDeviceChange = { [weak monitor] in monitor?.refreshTarget() }
         _audio = StateObject(wrappedValue: audio)
+        let mixer = AppVolumeMixer()
+        _mixer = StateObject(wrappedValue: mixer)
         let mediaKeys = MediaKeyMonitor()
         _mediaKeys = StateObject(wrappedValue: mediaKeys)
         startedAt = started
@@ -48,8 +51,8 @@ struct HeadsetCompanionApp: App {
         let updater = Updater()
         self.updater = updater
         statusItem = StatusItemController(
-            monitor: monitor, audio: audio, mediaKeys: mediaKeys, updater: updater,
-            loginItem: loginItem
+            monitor: monitor, audio: audio, mixer: mixer, mediaKeys: mediaKeys,
+            updater: updater, loginItem: loginItem
         )
         updater.start()
         // The App init runs exactly once per process launch, so the server
@@ -93,17 +96,19 @@ final class StatusItemController {
     private let popover = NSPopover()
     private let monitor: BatteryMonitor
     private let audio: AudioOutputController
+    private let mixer: AppVolumeMixer
     private let mediaKeys: MediaKeyMonitor
     private let updater: Updater
     private let loginItem: LoginItem
     private var cancellables = Set<AnyCancellable>()
 
     init(
-        monitor: BatteryMonitor, audio: AudioOutputController, mediaKeys: MediaKeyMonitor,
-        updater: Updater, loginItem: LoginItem
+        monitor: BatteryMonitor, audio: AudioOutputController, mixer: AppVolumeMixer,
+        mediaKeys: MediaKeyMonitor, updater: Updater, loginItem: LoginItem
     ) {
         self.monitor = monitor
         self.audio = audio
+        self.mixer = mixer
         self.mediaKeys = mediaKeys
         self.updater = updater
         self.loginItem = loginItem
@@ -268,6 +273,7 @@ final class StatusItemController {
             rootView: SoundMenuView(
                 audio: audio,
                 monitor: monitor,
+                mixer: mixer,
                 mediaKeyStateText: mediaKeyStateText,
                 updater: updater,
                 openSettings: { [weak self] in self?.showSettings() }
@@ -499,6 +505,7 @@ struct SoundMenuView: View {
 
     @ObservedObject var audio: AudioOutputController
     @ObservedObject var monitor: BatteryMonitor
+    @ObservedObject var mixer: AppVolumeMixer
     let mediaKeyStateText: String
     @ObservedObject var updater: Updater
     /// Opens the Settings panel (owned by `StatusItemController`).
@@ -526,12 +533,42 @@ struct SoundMenuView: View {
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 12)
 
+            // Apple's own Sound menu orders the built-in output ahead of the
+            // Bluetooth one — the HAL's list comes back the other way around.
             VStack(alignment: .leading, spacing: 2) {
-                ForEach(audio.devices) { device in
+                ForEach(audio.devices.reversed()) { device in
                     deviceRow(device)
                 }
             }
             .padding(.horizontal, 6)
+
+            if !mixer.canControlVolume {
+                systemAudioBanner
+                    .padding(.top, 2)
+            }
+
+            if !mixer.apps.isEmpty {
+                Divider()
+                    .padding(.horizontal, 12)
+
+                Text("Apps")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 12)
+
+                // Only as tall as it needs to be, so a busy session can't
+                // stretch the menu past the screen edge.
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 2) {
+                        ForEach(mixer.apps) { app in
+                            appRow(app)
+                        }
+                    }
+                    .padding(.horizontal, 6)
+                }
+                .frame(maxHeight: 168)
+                .fixedSize(horizontal: false, vertical: true)
+            }
 
             Divider()
                 .padding(.horizontal, 12)
@@ -604,6 +641,7 @@ struct SoundMenuView: View {
                 }
             }
         }
+        .accessibilityLabel(device.name)
     }
 
     /// Every Bluetooth row the system reports a level for gets a label. The
@@ -625,6 +663,150 @@ struct SoundMenuView: View {
             bridgeDeviceName: monitor.deviceName,
             nameFilter: BatteryMonitor.effectiveNameFilter
         )
+    }
+
+    // MARK: - App mixer
+
+    /// System Audio Recording is a hard gate for per-app volume: without it,
+    /// a muted tap delivers silence, so sliders would mute rather than lower.
+    /// Say that plainly and offer the one action that fixes it.
+    @ViewBuilder
+    private var systemAudioBanner: some View {
+        if #available(macOS 14.2, *) {
+            permissionBanner
+        } else {
+            unsupportedVolumeBanner
+        }
+    }
+
+    private var permissionBanner: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+                .font(.caption)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(mixer.systemAudioAccess == .denied
+                     ? "System Audio Recording is off"
+                     : "Allow System Audio Recording")
+                    .font(.caption.weight(.semibold))
+                Text("Needed to control app volume. Until then, apps keep playing at their own level.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 4)
+            Button(mixer.systemAudioAccess == .denied ? "Settings" : "Allow") {
+                if mixer.systemAudioAccess == .denied {
+                    openSystemAudioSettings()
+                } else {
+                    mixer.requestSystemAudioAccess()
+                }
+            }
+            .controlSize(.small)
+        }
+        .padding(8)
+        .background(.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 6))
+        .padding(.horizontal, 12)
+    }
+
+    /// Pre-14.2 has no process-object API, so there is nothing to grant and
+    /// no slider to enable — say so instead of offering a dead Allow button.
+    private var unsupportedVolumeBanner: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "info.circle.fill")
+                .foregroundStyle(.secondary)
+                .font(.caption)
+            Text("Per-app volume needs macOS 14.2 or later. Everything else works as before.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(8)
+        .background(Color.gray.opacity(0.12), in: RoundedRectangle(cornerRadius: 6))
+        .padding(.horizontal, 12)
+    }
+
+    private func openSystemAudioSettings() {
+        guard let url = URL(
+            string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"
+        ) else { return }
+        NSWorkspace.shared.open(url)
+    }
+
+    /// One mixer row: the app's icon doubles as its mute button (clicking it
+    /// is the gesture other mixers use, and dragging the slider off zero
+    /// unmutes anyway), then name, slider, and the live percentage.
+    private func appRow(_ app: MixerApp) -> some View {
+        HStack(spacing: 8) {
+            Button { mixer.toggleMuted(for: app.key) } label: {
+                Group {
+                    if let icon = app.icon {
+                        Image(nsImage: icon)
+                            .resizable()
+                    } else {
+                        Image(systemName: "app.fill")
+                    }
+                }
+                .frame(width: 16, height: 16)
+                .opacity(app.effectivelyMuted ? 0.35 : 1)
+            }
+            .buttonStyle(.plain)
+            .focusable(false)
+            .help(app.muted ? "Unmute \(app.name)" : "Mute \(app.name)")
+
+            Text(app.name)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(width: 76, alignment: .leading)
+                .opacity(app.effectivelyMuted ? 0.5 : 1)
+
+            Slider(
+                value: Binding(
+                    get: { app.volume },
+                    set: { mixer.setVolume($0, for: app.key) }
+                ),
+                in: 0...MixerApp.maxGain
+            )
+            .disabled(!app.supportsVolumeControl || !mixer.canControlVolume)
+            .help(mixer.canControlVolume
+                ? (app.supportsVolumeControl
+                    ? ""
+                    : "\(app.name)'s audio can't be rerouted on this system — only mute works")
+                : "Allow System Audio Recording to control app volume")
+
+            Text(app.supportsVolumeControl && mixer.canControlVolume
+                ? "\(Int((app.volume * 100).rounded()))%"
+                : "—")
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
+                .frame(width: 34, alignment: .trailing)
+
+            // One click back to the native path (100 %, unmuted). Disabled
+            // when there is nothing to undo, dimmed rather than removed so
+            // the row does not reflow as the level changes.
+            Button { mixer.resetToDefault(for: app.key) } label: {
+                Image(systemName: "arrow.counterclockwise")
+                    .font(.system(size: 10, weight: .semibold))
+                    .frame(width: 14, height: 14)
+            }
+            .buttonStyle(.plain)
+            .focusable(false)
+            .disabled(app.isDefault)
+            .opacity(app.isDefault ? 0.25 : 1)
+            .help("Reset \(app.name) to 100% and unmute")
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
+        .contextMenu {
+            Button(app.muted ? "Unmute \(app.name)" : "Mute \(app.name)") {
+                mixer.toggleMuted(for: app.key)
+            }
+            Button("Reset \(app.name) to 100%") {
+                mixer.resetToDefault(for: app.key)
+            }
+            .disabled(app.isDefault)
+        }
     }
 
     private func openSoundSettings() {

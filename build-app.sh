@@ -25,6 +25,14 @@ chmod +x "$APP/Contents/Resources/install-launch-agent.sh"
 # committed rather than built here; see icon/README.md to regenerate it.
 cp icon/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 
+# TCC only attributes System Audio Recording consent to a *signed bundle* whose
+# Info.plist is sealed. The linker signature SwiftPM leaves behind is not a
+# bundle signature ("Info.plist=not bound"), and with that macOS refuses to
+# prompt and silently zeroes every process tap — the app goes mute instead of
+# quieter. Ad-hoc is enough locally; the cdhash changes on every rebuild, so
+# macOS re-asks after a rebuild.
+codesign --force --sign - --identifier io.sonora.headsetcompanion "$APP"
+
 echo ""
 echo "Built: $(pwd)/$APP"
 echo "Run:   open \"$APP\"   (menu-bar icon appears)"

@@ -61,6 +61,7 @@ headset battery at all**.
 | **Actually current** | Re-reads the level from a fresh process, which is the only way to dodge the per-process cache that makes other tools (and macOS itself) report yesterday's number. |
 | **Any headset** | Sony, Bose, AirPods, Jabra, Anker, the €19 pair from the airport. Nothing in the app names a model: it reads whatever the system Bluetooth stack reports, with a BLE Battery Service fallback. |
 | **Replaces the Sound menu** | Volume slider, every output device, and each headset's battery on its own row. One click instead of Control Centre → Sound → hover. |
+| **Per-app volume and mute** | Every app currently playing gets its own row: drag for 0–150 %, click its icon to mute, ↺ to return to 100 % and release the tap. Needs macOS 14.2+ and the System Audio Recording permission. |
 | **Follows what you're listening on** | Switch output to another headset and the menu bar switches with it, within the same second. |
 | **Feeds the browser** | Serves `GET http://127.0.0.1:8745/battery` on loopback so the [Sonora Chrome extension](#the-sonora-chrome-extension) can show the same number next to your tabs. |
 | **You can switch it off** | The key-claiming is policy-driven (`auto` by default, or `passive` / `own`): `auto` only takes the keys while the cockpit is listening, so the rest of the time they go wherever they went before. |
@@ -78,7 +79,11 @@ headset battery at all**.
 2. Drag **HeadsetCompanion** into **Applications**.
 3. First launch only: **right-click the app → Open → Open**. The app is not
    notarised by Apple (it's free and unsigned), so Gatekeeper asks once.
-4. Optional — start it at login: click the menu bar icon → **Settings…** and
+4. The first time you use per-app volume, macOS asks for **System Audio
+   Recording** — allow it. Until then the app leaves every process at its own
+   level; without the grant a tap would mute the app instead of lowering it.
+   (Per-app volume needs macOS 14.2 or later.)
+5. Optional — start it at login: click the menu bar icon → **Settings…** and
    turn on **Start at login**. macOS may ask you to approve the item once
    under **System Settings → General → Login Items**.
 
@@ -200,7 +205,7 @@ The macOS app, from the repo root:
 ```bash
 git clone https://github.com/YamineRL/sonora.git
 cd sonora
-swift test          # 122 tests
+swift test          # 148 tests
 ./build-app.sh      # -> HeadsetCompanion.app
 ./make-dmg.sh       # -> dist/HeadsetCompanion-<version>.dmg
 ```
