@@ -26,7 +26,7 @@ public enum AudioOutputFormatting {
     public static func iconName(forTransportType transportType: UInt32) -> String {
         switch transportType {
         case kAudioDeviceTransportTypeBuiltIn:
-            return "laptopcomputer"
+            return "speaker.wave.2.fill"
         case kAudioDeviceTransportTypeBluetooth, kAudioDeviceTransportTypeBluetoothLE:
             return "headphones"
         case kAudioDeviceTransportTypeAggregate, kAudioDeviceTransportTypeVirtual:

@@ -174,7 +174,7 @@ final class MenuBarLabelPlanTests: XCTestCase {
         let plan = MenuBarLabelPlan.forOutput(
             transportType: kAudioDeviceTransportTypeBuiltIn, battery: 70, connected: true
         )
-        XCTAssertEqual(plan.symbolName, "laptopcomputer")
+        XCTAssertEqual(plan.symbolName, "speaker.wave.2.fill")
         XCTAssertFalse(plan.showsBattery)
     }
 
@@ -296,7 +296,7 @@ final class MenuBarAirPodsGlyphTests: XCTestCase {
     /// transport mapping.
     func testNonBluetoothNamesNeverGetAnAirPodsGlyph() {
         XCTAssertEqual(symbol("AirPods Pro", transport: kAudioDeviceTransportTypeUSB), "speaker.wave.2")
-        XCTAssertEqual(symbol("AirPods", transport: kAudioDeviceTransportTypeBuiltIn), "laptopcomputer")
+        XCTAssertEqual(symbol("AirPods", transport: kAudioDeviceTransportTypeBuiltIn), "speaker.wave.2.fill")
     }
 
     func testAirPodsStillDrawTheBatteryRow() {

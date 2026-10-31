@@ -10,7 +10,7 @@ final class AudioOutputFormattingTests: XCTestCase {
     func testIconFollowsTransportType() {
         XCTAssertEqual(
             AudioOutputFormatting.iconName(forTransportType: kAudioDeviceTransportTypeBuiltIn),
-            "laptopcomputer")
+            "speaker.wave.2.fill")
         XCTAssertEqual(
             AudioOutputFormatting.iconName(forTransportType: kAudioDeviceTransportTypeBluetooth),
             "headphones")
