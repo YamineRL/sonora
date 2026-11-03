@@ -317,11 +317,19 @@ function commandTargets(sources: MediaSource[]): MediaSource[] {
 
 /** The source a global toggle / stop acts on. */
 function commandTarget(sources: MediaSource[]): MediaSource {
-  return (
-    sources.find((s) => s.tabId === activeTabId) ??
-    sources.find((s) => s.playing) ??
-    sources[0]
-  );
+  // What is playing wins over the remembered tab. A newly opened tab that
+  // starts on its own never goes through `setActive`, so `activeTabId`
+  // still names the old, paused tab: a headset tap then "resumed" that one
+  // instead of pausing what you hear, until next/previous re-picked it.
+  const active = sources.find((s) => s.tabId === activeTabId);
+  if (active?.playing) return active;
+  const playing = sources.find((s) => s.playing);
+  if (playing) {
+    activeTabId = playing.tabId;
+    void saveActiveTabId(playing.tabId);
+    return playing;
+  }
+  return active ?? sources[0];
 }
 
 /**

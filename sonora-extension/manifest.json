@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Sonora — Browser Media Cockpit",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Control every audible browser tab — YouTube, podcasts, web radio — from one focused cockpit.",
   "minimum_chrome_version": "116",
   "icons": {
